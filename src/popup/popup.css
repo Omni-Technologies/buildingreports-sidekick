@@ -1,0 +1,97 @@
+body {
+  width: 360px;
+  font: 13px/1.4 -apple-system, Segoe UI, Arial, sans-serif;
+  margin: 0;
+  padding: 0 10px 12px;
+  color: #1a1a1a;
+}
+
+header h1 {
+  font-size: 15px;
+  margin: 10px 0 6px;
+}
+
+.panel {
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.hidden {
+  display: none;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+select {
+  width: 100%;
+  padding: 4px;
+}
+
+#profileActive {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3a3a3a;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+button {
+  flex: 1;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+#statusText.error {
+  color: #a4262c;
+}
+
+#statusText.ok {
+  color: #0b6a0b;
+}
+
+.bucket-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.change-item {
+  border-bottom: 1px solid #e5e5e5;
+  padding: 4px 0;
+}
+
+.change-item .before {
+  color: #a4262c;
+  text-decoration: line-through;
+}
+
+.change-item .after {
+  color: #0b6a0b;
+}
+
+pre#diagnosticsText {
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow: auto;
+  font-size: 11px;
+}

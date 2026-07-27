@@ -1,0 +1,24 @@
+# Dependencies (none currently, but this repo has no build step - keep clean if any appear)
+node_modules/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Anything that might contain real report data, credentials, or live-test
+# recovery state - this project's rule is no customer names, report IDs,
+# scannumbers, or credentials ever get committed. Live-test scratch data
+# belongs in the session scratchpad, never in the repo, but these patterns
+# are a backstop in case something like it ever lands here by mistake.
+*recovery-state*
+*recovery-snapshot*
+*.session-state.json
+credentials.json
+credentials.*.json
+*.env
+.env*
+
+# Editor/OS temp files
+*.tmp
+*.log

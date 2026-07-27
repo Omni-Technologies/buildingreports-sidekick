@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "BuildingReports Sidekick",
+  "version": "0.1.0",
+  "description": "Local cleanup and editing tools for BuildingReports inspection reports.",
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "BuildingReports Sidekick"
+  },
+  "background": {
+    "service_worker": "src/background/background.js",
+    "type": "module"
+  },
+  "permissions": ["scripting", "storage", "activeTab"],
+  "host_permissions": ["https://www.buildingreports.com/*"]
+}

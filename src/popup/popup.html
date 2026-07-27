@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>BuildingReports Sidekick</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>BuildingReports Sidekick</h1>
+  </header>
+
+  <section id="status" class="panel">
+    <div id="statusText">Checking current tab...</div>
+  </section>
+
+  <section class="panel">
+    <label for="profileSelect">Inspection Profile</label>
+    <select id="profileSelect">
+      <option value="annual">Annual</option>
+      <option value="semi-annual">Semi-Annual</option>
+    </select>
+    <div id="profileActive"></div>
+  </section>
+
+  <section class="panel actions">
+    <button id="previewBtn" disabled>Preview Cleanup</button>
+    <button id="applyBtn" disabled>Apply Cleanup</button>
+    <button id="undoBtn" disabled>Undo Last Cleanup</button>
+  </section>
+
+  <section id="confirmBar" class="panel hidden">
+    <div id="confirmText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="confirmYes"></button>
+      <button id="confirmNo">Cancel</button>
+    </div>
+  </section>
+
+  <section id="resumeBar" class="panel hidden">
+    <div id="resumeText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="resumeBtn">Resume</button>
+      <button id="discardBtn">Cancel Remaining</button>
+    </div>
+  </section>
+
+  <section id="progress" class="panel hidden">
+    <div id="progressText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="pauseBtn">Pause</button>
+      <button id="cancelRemainingBtn">Cancel Remaining</button>
+    </div>
+  </section>
+
+  <section id="summary" class="panel hidden">
+    <h2>Result</h2>
+    <div id="summaryText"></div>
+    <details id="reviewDetails">
+      <summary id="reviewSummary">Review list</summary>
+      <div id="reviewList"></div>
+    </details>
+    <details id="examplesDetails">
+      <summary>Before / after examples</summary>
+      <div id="examplesList"></div>
+    </details>
+  </section>
+
+  <header>
+    <h1>Battery Cleanup</h1>
+  </header>
+
+  <section class="panel">
+    <div>Universal - applies to Battery devices in any report, regardless of Annual/Semi-Annual.</div>
+  </section>
+
+  <section class="panel actions">
+    <button id="batteryPreviewBtn" disabled>Preview Battery Cleanup</button>
+    <button id="batteryApplyBtn" disabled>Apply Battery Cleanup</button>
+    <button id="batteryUndoBtn" disabled>Undo Last Battery Cleanup</button>
+  </section>
+
+  <section id="batteryConfirmBar" class="panel hidden">
+    <div id="batteryConfirmText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="batteryConfirmYes"></button>
+      <button id="batteryConfirmNo">Cancel</button>
+    </div>
+  </section>
+
+  <section id="batteryResumeBar" class="panel hidden">
+    <div id="batteryResumeText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="batteryResumeBtn">Resume</button>
+      <button id="batteryDiscardBtn">Cancel Remaining</button>
+    </div>
+  </section>
+
+  <section id="batteryProgress" class="panel hidden">
+    <div id="batteryProgressText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="batteryPauseBtn">Pause</button>
+      <button id="batteryCancelRemainingBtn">Cancel Remaining</button>
+    </div>
+  </section>
+
+  <section id="batterySummary" class="panel hidden">
+    <h2>Battery Result</h2>
+    <div id="batterySummaryText"></div>
+    <details id="batteryOutcomeDetails">
+      <summary id="batteryOutcomeSummary">Pass/Fail outcomes</summary>
+      <div id="batteryOutcomeList"></div>
+    </details>
+    <details id="batteryFieldCountsDetails">
+      <summary>Field-level change counts</summary>
+      <div id="batteryFieldCountsList"></div>
+    </details>
+    <details id="batteryReviewDetails">
+      <summary id="batteryReviewSummary">Review list</summary>
+      <div id="batteryReviewList"></div>
+    </details>
+    <details id="batteryExamplesDetails">
+      <summary>Before / after details</summary>
+      <div id="batteryExamplesList"></div>
+    </details>
+  </section>
+
+  <details id="diagnostics" class="panel hidden">
+    <summary>Diagnostics</summary>
+    <pre id="diagnosticsText"></pre>
+  </details>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
