@@ -5,6 +5,15 @@ publishing updates to the Chrome Web Store **Unlisted** listing. Read
 `docs/chrome-web-store-submission.md` alongside this for the exact text
 to paste into the dashboard.
 
+**Current status**: the initial Unlisted listing already exists and was
+submitted with version `0.1.1`. See `docs/web-store-status.md` for the
+live-tracked status (latest generated/submitted/approved version,
+whether permissions or privacy disclosures need updating before the next
+release). Steps 5-6 below (signing in, creating the listing) are kept as
+reference for what already happened and for disaster-recovery — every
+future release skips straight to step 13 ("upload to the same existing
+listing").
+
 ## 0. Before you start a release
 
 Edit `CHANGELOG.md`'s `## [Unreleased]` section and describe what

@@ -4,6 +4,20 @@ Read this first, every session. It's the whole mental model in one file.
 For deeper detail, see the docs it points to — don't re-derive things this
 file already answers.
 
+## Starting a session
+
+Before touching any code, every session:
+
+1. Read `CLAUDE.md` (this file).
+2. Read `docs/current-state.md`.
+3. Read `docs/rule-inventory.md`.
+4. Read `docs/web-store-status.md`.
+5. Read the documentation for whichever cleanup action you're about to
+   change (`docs/cleanup-rules.md` for Service Cleanup,
+   `docs/battery-cleanup-rules.md` for Battery Cleanup).
+6. Run `git status` and inspect it before editing anything — know what's
+   already staged/modified/untracked before you add to it.
+
 ## What this is
 
 A local, unpacked Chrome extension (Manifest V3, no build step) that adds
@@ -198,6 +212,36 @@ every change. See `docs/current-state.md` for the current exact count.
    same-or-newer adapter left in an already-open tab is otherwise never
    replaced.
 
+## Chrome Web Store listing
+
+BuildingReports Sidekick has **one existing Chrome Web Store listing**,
+submitted with **Unlisted** distribution. Version `0.1.1` was the initial
+submitted package. `docs/web-store-status.md` tracks current status
+(latest generated/submitted/approved version, whether permissions or
+privacy disclosures need updating) — update it whenever you generate a
+release, and update its submitted/approved fields only when the user
+explicitly tells you a version was submitted or approved. Never guess
+approval status.
+
+Rules that follow from there being one listing:
+
+- **Never create a new Chrome Web Store item for a normal update.** Every
+  future release uploads to the *same* existing Unlisted listing — see
+  `RELEASING.md` for the full upload/rollback workflow.
+- Coworkers who installed from the unlisted link keep the same installed
+  extension and receive future approved updates automatically through
+  Chrome's normal update mechanism — no reinstall, no new link, ever.
+- **The locally-loaded unpacked extension and the Chrome Web Store
+  release ZIP are different artifacts with different purposes** — never
+  conflate them. The unpacked folder (`chrome://extensions` → Load
+  unpacked, described above) is for development/testing only. The
+  generated `releases/*.zip` (via `npm run release:*`, see `RELEASING.md`)
+  is what actually gets uploaded to the Web Store. "I tested it locally"
+  is not the same claim as "it's ready for the store" — see "Normal
+  feature completion vs. Chrome Web Store release" below.
+- Never store Chrome Web Store account passwords, credentials, access
+  tokens, or other private account information anywhere in this repo.
+
 ## Connecting through Chrome DevTools MCP
 
 **Always attach to the existing, already-authenticated BuildingReports
@@ -209,11 +253,13 @@ report tab.** At the start of any browser-driven session:
    before doing anything else — e.g. confirm `window.Ext` and
    `window.ReportInspectionId` exist inside the Device Editor frame.
 
-**If MCP opens or shows only a blank Chrome window: stop.** Do not continue
-testing against it, do not silently switch to another automation method,
-and do not treat a blank page as the report. Re-check the MCP connection,
-re-list pages, and ask the user to reconnect or point you to the right tab
-if it genuinely can't be found.
+**If MCP opens or shows only a blank Chrome window, or launches a
+new/separate Chrome instance instead of attaching to the existing one:
+stop.** Do not continue testing against it, do not silently switch to
+another automation method, and do not treat a blank page (or the new
+instance) as the report. Re-check the MCP connection, re-list pages, and
+ask the user to reconnect only when it genuinely can't be found any other
+way.
 
 ## Safety restrictions
 
@@ -232,6 +278,135 @@ moment it's connected via MCP — there is no sandbox/staging environment.
 Treat any live Apply/Undo test as production-affecting; get explicit
 confirmation before a full-report (not a small controlled set) Apply, and
 never fire writes outside the paced queue (see above).
+
+## Definition of done for every feature
+
+After every successfully implemented feature or cleanup rule, before
+considering it finished:
+
+1. Run the complete automated test suite (`npm test`).
+2. Test Preview before Apply.
+3. Perform only the minimum necessary live BuildingReports testing (a
+   small, hand-picked set of real devices — see
+   `docs/new-rule-checklist.md` step 10).
+4. Verify Apply, save, and persistence against the real report.
+5. Test Undo whenever fields were actually changed.
+6. Restore deliberate test modifications on the live report when
+   appropriate — it's a real customer report, not a sandbox.
+7. Confirm unrelated cleanup actions (the other of Service/Battery
+   Cleanup, and the other Inspection Profile) still work.
+8. Update `docs/current-state.md`.
+9. Update `docs/rule-inventory.md`.
+10. Update the relevant rule documentation (`docs/cleanup-rules.md`,
+    `docs/battery-cleanup-rules.md`, or both).
+11. Update `docs/buildingreports-dom-map.md` for any new under-the-hood
+    discovery (selectors, field mappings, quirks).
+12. Review the Git diff for customer information, report IDs,
+    scannumbers, logs, recovery data, credentials, or secrets before
+    staging anything.
+13. Commit the known-working feature locally with a descriptive commit
+    message.
+14. Report whether manifest permissions, host permissions, privacy
+    behavior, or data handling changed — explicitly say "unchanged" if
+    they didn't.
+15. Report whether a Chrome Web Store release is recommended for this
+    change — but do not generate one unless explicitly requested (see
+    "Normal feature completion vs. Chrome Web Store release" below).
+
+The identical checklist also lives in `docs/new-rule-checklist.md`
+alongside its more detailed step-by-step build guidance — this is the
+"how do I know I'm done" version; that file is the "how do I build it"
+version.
+
+## Permission changes — ask first
+
+**Never add or broaden a Chrome permission or host permission without
+explicitly warning the user first.** If a requested feature appears to
+need a new permission:
+
+1. Explain why the existing permissions (`scripting`, `storage`,
+   `activeTab`, and the `https://www.buildingreports.com/*` host
+   permission) are insufficient for it.
+2. Identify the exact new permission needed.
+3. Explain whether it can trigger additional Chrome Web Store review.
+4. Explain whether installed users will have to approve the update, or
+   whether Chrome may disable the extension for them until they do (see
+   `RELEASING.md`'s "Handle updates that introduce new permissions"
+   section).
+5. Look for a design that works within the existing permission set
+   first — most new data needs can be met by extending `adapter.js`'s
+   existing JSON-in/JSON-out methods rather than requesting broader
+   access.
+6. Wait for explicit approval before actually changing `manifest.json`'s
+   `permissions`/`host_permissions`.
+
+After every feature, explicitly report one of:
+- "Manifest permissions unchanged."
+- "Manifest permissions changed: `<exact details>`."
+
+## Privacy and data disclosure updates
+
+If a feature changes any of the following, update **both** `PRIVACY.md`
+and `docs/chrome-web-store-submission.md` as part of that feature, not
+later:
+
+- Data read from BuildingReports
+- Data stored in `chrome.storage.local`
+- External network communication
+- Analytics or telemetry
+- Remote services
+- User authentication behavior
+- Host permissions
+- Chrome permissions
+- The extension's primary/single purpose
+
+**Never claim these documents remain accurate without actually checking
+the current code** — re-read the relevant `src/` files; don't assume a
+prior session's description still holds.
+
+## Normal feature completion vs. Chrome Web Store release
+
+These are two separate workflows — don't blend them.
+
+**Normal feature completion** (the default, every time):
+- Run all tests.
+- Complete the live verification from "Definition of done" above.
+- Update documentation.
+- Commit locally.
+- **Do not** bump the manifest version.
+- **Do not** generate a release ZIP — unless the user explicitly asks
+  for a release.
+
+**Chrome Web Store release** (only when the user explicitly says to
+prepare or publish an update):
+
+1. Confirm the working tree is ready (all intended commits present,
+   nothing half-finished).
+2. Confirm no private data is tracked or would be packaged (see
+   `npm run release:check`'s hygiene scan).
+3. Update `CHANGELOG.md`'s `## [Unreleased]` section with what changed.
+4. `npm test`
+5. `npm run release:check`
+6. `npm run release:dry-run`
+7. `npm run release:patch` for normal fixes and new cleanup rules —
+   only use `minor`/`major` if a larger version bump is specifically
+   justified.
+8. Validate the generated ZIP (the release script already does this
+   automatically — review its output).
+9. Confirm `manifest.json` is at the ZIP root (also automatic).
+10. Confirm the new version number exceeds whatever's currently
+    submitted or published — check `docs/web-store-status.md`.
+11. Report the exact ZIP path.
+12. Provide short release notes suitable for pasting into the Chrome
+    Web Store dashboard.
+13. Remind the user to upload the ZIP to the *existing* listing and
+    submit the update for review — **never upload, publish, or submit
+    through an API without the user's explicit request.**
+
+After generating a release, update `docs/web-store-status.md`'s "Latest
+locally generated version" field. Only update its submitted/approved
+fields when the user explicitly tells you a version was submitted or
+approved — never guess.
 
 ## Where to add new rules / required workflow
 

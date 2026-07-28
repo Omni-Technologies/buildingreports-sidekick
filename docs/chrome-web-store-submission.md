@@ -6,6 +6,14 @@ meant to be copy-pasted directly into the dashboard's fields. Placeholders
 that require something external (screenshots, a hosted URL) are marked
 `[PLACEHOLDER: ...]`.
 
+**Current status**: this listing already exists (created and submitted
+Unlisted with version `0.1.1`) — see `docs/web-store-status.md` for the
+live-tracked status. The listing-creation instructions below remain as
+reference for what was done originally and for disaster recovery; a
+normal future update only needs the listing text/justifications here plus
+`RELEASING.md`'s "Upload future versions to the same existing listing"
+step.
+
 This extension is reviewed against Chrome's Manifest V3 platform and the
 Chrome Web Store Program Policies as of this writing. Re-check
 https://developer.chrome.com/docs/webstore/program-policies/ and

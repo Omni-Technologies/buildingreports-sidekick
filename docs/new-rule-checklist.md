@@ -56,3 +56,34 @@ causes the kind of mess `docs/buildingreports-dom-map.md` §5.1 describes.
     `semi-annual.js`'s `VISUAL_FUNCTIONAL_DEVICE_TYPES`" — so the next
     session (or the next request) doesn't have to re-figure out the
     architecture.
+
+## Definition of done (mandatory, every feature — read `CLAUDE.md` too)
+
+The steps above are "how to build it." This is "how to know you're
+finished" — the identical checklist also lives in `CLAUDE.md`. Don't skip
+any of these before calling a feature complete:
+
+1. Run the complete automated test suite (`npm test`).
+2. Test Preview before Apply.
+3. Perform only the minimum necessary live BuildingReports testing.
+4. Verify Apply, save, and persistence.
+5. Test Undo whenever fields were actually changed.
+6. Restore deliberate test modifications on the live report when
+   appropriate.
+7. Confirm unrelated cleanup actions still work.
+8. Update `docs/current-state.md`.
+9. Update `docs/rule-inventory.md`.
+10. Update the relevant rule documentation.
+11. Update `docs/buildingreports-dom-map.md` for any new under-the-hood
+    discovery.
+12. Review the Git diff for customer information, report IDs,
+    scannumbers, logs, recovery data, credentials, or secrets.
+13. Commit the known-working feature locally with a descriptive commit
+    message.
+14. Report whether manifest permissions, host permissions, privacy
+    behavior, or data handling changed — see `CLAUDE.md`'s "Permission
+    changes — ask first" section before touching `manifest.json`.
+15. Report whether a Chrome Web Store release is recommended — but do
+    not generate one unless explicitly requested. See `CLAUDE.md`'s
+    "Normal feature completion vs. Chrome Web Store release" and
+    `RELEASING.md` for that separate workflow.
