@@ -1,10 +1,15 @@
 {
   "name": "buildingreports-sidekick",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "Local Chrome extension with cleanup/editing tools for BuildingReports inspection reports.",
+  "description": "Unofficial local Chrome extension with cleanup/editing tools for BuildingReports inspection reports. Not affiliated with or endorsed by BuildingReports.",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "release:check": "node scripts/release.js check",
+    "release:dry-run": "node scripts/release.js dry-run",
+    "release:patch": "node scripts/release.js release patch",
+    "release:minor": "node scripts/release.js release minor",
+    "release:major": "node scripts/release.js release major"
   }
 }

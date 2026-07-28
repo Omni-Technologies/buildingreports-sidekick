@@ -22,3 +22,17 @@ credentials.*.json
 # Editor/OS temp files
 *.tmp
 *.log
+
+# Release packaging output: staging directories, produced ZIPs, and their
+# checksums are all build artifacts regenerated on demand by
+# `npm run release:*` from the current source tree - see RELEASING.md
+# ("Should release ZIPs be committed?") for why these are intentionally
+# NOT committed: they're fully reproducible from source at any tagged
+# commit, and keeping binary ZIPs out of git history keeps the repo small.
+releases/
+
+# Optional Chrome Web Store API credentials (see RELEASING.md's optional
+# API automation section) - never commit real values, only the example
+# placeholder file.
+.cws-publish.env
+.cws-publish.local.*
