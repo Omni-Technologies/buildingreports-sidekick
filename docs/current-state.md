@@ -23,7 +23,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**130 tests, 0 failures** across `tests/*.test.js`
+**132 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `engine.test.js`, `semi-annual.test.js`, `write-queue.test.js`). Synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
@@ -94,8 +94,11 @@ changes, per the versioned-re-injection scheme in `docs/architecture.md`.
   restored the counterpart to its exact original values. Live testing also
   surfaced and fixed a real bug: the initial implementation only checked
   the `direction` column for the Left/Right marker, but real technician
-  entries put it in `description` instead (see
-  `docs/battery-cleanup-rules.md`) - both columns are now checked.
+  entries put it in `description` instead. Since which column carries it
+  isn't predictable, the rule now scans all five identifying columns
+  (`floor`, `direction`, `location`, `description`, `areasuite`) for the
+  marker rather than hardcoding one or two (see
+  `docs/battery-cleanup-rules.md`).
 
 ## Most recent successful live verification
 

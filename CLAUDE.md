@@ -198,7 +198,7 @@ detail: `docs/buildingreports-dom-map.md`.
 npm test
 ```
 
-`node --test tests/*.test.js` — 130 tests as of this writing, synthetic
+`node --test tests/*.test.js` — 132 tests as of this writing, synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM. Run this after
 every change. See `docs/current-state.md` for the current exact count.
 

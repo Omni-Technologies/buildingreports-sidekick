@@ -142,24 +142,28 @@ on all five requested Device Editor columns:
 - Description (`description`)
 - Area/Suite (`areasuite`)
 
-The standalone `Left`/`Right` word itself is looked for in **both**
-Direction and Description (whichever column the technician actually put it
-in - confirmed live against a real report, see below), and whichever one
-has it gets that word swapped out (`Left`<->`Right`) before the rest of its
-text is compared; the other column is compared as plain text like Floor/
-Location/Area-Suite. Matching is case-insensitive, trims leading/trailing
+The standalone `Left`/`Right` word itself is not assumed to live in any one
+particular column - real reports have been observed putting it in
+Direction, Description, or elsewhere (see below), and there's no reason to
+assume those are the only two. So **all five** columns above are scanned
+for the marker, and whichever single column actually has it gets that word
+swapped out (`Left`<->`Right`) before the rest of its text is compared; every
+other column (including that same column when it has none) is compared as
+plain text. Matching is case-insensitive, trims leading/trailing
 whitespace, and collapses repeated internal whitespace. A record is left
-unpaired (never guessed) when: the marker appears in neither column, the
-marker appears in both columns, either column has more than one side word,
-any identifying column mismatches between the candidates, or there's more
-than one Left or Right candidate in a group.
+unpaired (never guessed) when: the marker appears in none of the five
+columns, the marker appears in more than one of them (whether duplicated
+within a single column or split across several), any of the five columns
+mismatches between the candidates, or there's more than one Left or Right
+candidate in a group.
 
 **Confirmed live** (a real report, 2026-08-04, no customer/report
 identifiers recorded here): real technician entries do not reliably put
 `Left`/`Right` in Direction - one real pair had Direction holding an
 unrelated building label for both Batteries, with the actual marker in
-Description ("Left Battery"/"Right Battery") instead. This is why both
-columns are checked rather than only Direction.
+Description ("Left Battery"/"Right Battery") instead. Because the marker's
+location isn't predictable, the rule checks all five identifying columns
+rather than hardcoding any particular one or two.
 
 The paired side uses the source Battery's existing failure outputs (Date
 Expired, Failed Load Test, or both). If both Batteries have their own

@@ -297,6 +297,45 @@ test('Left/Right marker in Description (not Direction) still pairs - confirmed l
   assert.equal(summary.results.find((r) => r.scannumber === 'right-desc').pairedFailure.sourceScannumber, 'left-desc');
 });
 
+test('a Left/Right marker in Location (not Direction or Description) still pairs - no column is hardcoded', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({
+      scannumber: 'left-loc',
+      floor: '2',
+      direction: 'Building A',
+      location: 'Left FACP Room',
+      description: 'Fire Alarm Panel Battery',
+      areasuite: 'Suite 200',
+      testedAh: '1.00',
+    }),
+    makeBatteryRecord({
+      scannumber: 'right-loc',
+      floor: '2',
+      direction: 'Building A',
+      location: 'Right FACP Room',
+      description: 'Fire Alarm Panel Battery',
+      areasuite: 'Suite 200',
+    }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 1);
+  assert.equal(summary.results.find((r) => r.scannumber === 'right-loc').pairedFailure.sourceScannumber, 'left-loc');
+});
+
+test('a Left/Right marker split across two different columns is ambiguous, not paired', () => {
+  // "Left" in direction, "Right" in description on the SAME record isn't a
+  // pair signal at all - it's an unparseable record, so it's correctly
+  // never grouped into any pair regardless of what the other Battery says.
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-split', direction: 'Left', description: 'Right Panel', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-split', direction: 'Right' }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 0);
+  assert.equal(summary.failedLoadTestCount, 1);
+  assert.equal(summary.passingBatteries, 1);
+});
+
 test('a Left/Right marker in BOTH Direction and Description is treated as ambiguous, not paired', () => {
   const summary = runBatteryCleanup([
     makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-both', direction: 'Left', description: 'Left Battery', testedAh: '1.00' }),
@@ -308,10 +347,10 @@ test('a Left/Right marker in BOTH Direction and Description is treated as ambigu
   assert.equal(summary.passingBatteries, 1);
 });
 
-test('no Left/Right marker in either Direction or Description leaves both unpaired', () => {
+test('no Left/Right marker in any of the five columns leaves both unpaired', () => {
   const summary = runBatteryCleanup([
-    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-none', direction: 'Building A', description: 'Panel Batteries', testedAh: '1.00' }),
-    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-none', direction: 'Building A', description: 'Panel Batteries' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-none', direction: 'Building A', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-none', direction: 'Building A' }),
   ], NOW);
 
   assert.equal(summary.pairedFailureCount, 0);

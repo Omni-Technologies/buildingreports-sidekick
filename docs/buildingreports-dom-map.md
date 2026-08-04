@@ -59,11 +59,14 @@ const store = grid.getStore();
   matching. `areasuite` was added to the adapter's returned record shape in
   adapter version 4; none of these pairing fields is written by that rule.
 - Confirmed live: the standalone `Left`/`Right` word that identifies a
-  Battery's side is **not** reliably in `direction` - one real report had
-  `direction` holding an unrelated building label for both Batteries in a
-  pair, with the actual marker in `description` instead ("Left Battery"/
-  "Right Battery"). `battery-engine.js`'s pairing logic checks both
-  columns for this reason - see `docs/battery-cleanup-rules.md`.
+  Battery's side is **not** reliably in any one column - one real report
+  had `direction` holding an unrelated building label for both Batteries
+  in a pair, with the actual marker in `description` instead ("Left
+  Battery"/"Right Battery"). Since which column carries it isn't
+  predictable, `battery-engine.js`'s pairing logic scans all five
+  identifying columns (`floor`, `direction`, `location`, `description`,
+  `areasuite`) for the marker rather than hardcoding one or two - see
+  `docs/battery-cleanup-rules.md`.
 
 Useful page globals inside that frame (used for report identity, no DOM
 query needed): `window.ReportBuildingId`, `window.ReportBuildingName`,

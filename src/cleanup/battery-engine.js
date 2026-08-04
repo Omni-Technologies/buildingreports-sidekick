@@ -136,38 +136,36 @@ export function runBatteryCleanup(records, now = new Date()) {
 }
 
 // A battery pair is only inferred when exactly one Left and one Right
-// Battery share Floor, Location, Area/Suite, and the rest of the Direction
-// and Description text. Ambiguous duplicates are deliberately skipped so a
-// cleanup can never fail the wrong device by guessing.
+// Battery share Floor, Direction, Location, Description, and Area/Suite.
+// Ambiguous duplicates are deliberately skipped so a cleanup can never fail
+// the wrong device by guessing.
 //
-// Confirmed live: the Left/Right marker is not reliably in the Direction
-// column - real technician entries put it in Description instead
-// (Direction held an unrelated building label; Description held "Left
-// Battery"/"Right Battery"). So both columns are checked for the marker,
-// and whichever one actually has
-// it gets its side-word stripped for the match key - the other column is
-// compared as plain text. If the marker appears in both columns, or in
-// neither, or more than once total, the record is treated as unpaired
-// rather than guessed.
+// Confirmed live: which column actually carries the standalone Left/Right
+// word varies by report - one real report had it in Description ("Left
+// Battery"/"Right Battery") with Direction holding an unrelated building
+// label; another convention could just as easily put it in Direction,
+// Location, or elsewhere. Rather than hardcoding one column, all five
+// identifying columns are scanned for the marker, and whichever single
+// column actually has it gets its side-word stripped for the match key -
+// every other column (including that same column when it has none) is
+// compared as plain text. If the marker appears in more than one column
+// total (whether duplicated within one column or split across several), or
+// in none of them, the record is treated as unpaired rather than guessed.
+const PAIR_COLUMNS = ['floor', 'direction', 'location', 'description', 'areasuite'];
+
 function applyPairedFailures(records, initialResults, now) {
   const results = [...initialResults];
   const groups = new Map();
 
   for (let index = 0; index < records.length; index += 1) {
     if (!initialResults[index].isBattery) continue;
-    const direction = parsePairSide(records[index].direction);
-    const description = parsePairSide(records[index].description);
-    const totalSideWords = direction.count + description.count;
-    if (totalSideWords !== 1) continue;
-    const side = direction.side || description.side;
 
-    const key = JSON.stringify([
-      normalizePairText(records[index].floor),
-      direction.stem,
-      normalizePairText(records[index].location),
-      description.stem,
-      normalizePairText(records[index].areasuite),
-    ]);
+    const columns = PAIR_COLUMNS.map((field) => parsePairSide(records[index][field]));
+    const totalSideWords = columns.reduce((sum, c) => sum + c.count, 0);
+    if (totalSideWords !== 1) continue;
+    const side = columns.find((c) => c.count === 1).side;
+
+    const key = JSON.stringify(columns.map((c) => c.stem));
     if (!groups.has(key)) groups.set(key, { left: [], right: [] });
     groups.get(key)[side].push(index);
   }
@@ -201,8 +199,10 @@ function normalizePairText(value) {
 
 // Extracts a standalone Left/Right word from a single column's text.
 // `count` lets the caller require the marker appear exactly once across
-// BOTH the Direction and Description columns combined - `side`/`stem` are
-// only meaningful when this column is the one that had it.
+// ALL of PAIR_COLUMNS combined - `side` is only meaningful when this
+// column is the one that had it; `stem` is the column's normalized text
+// with that single occurrence removed (or just the normalized text
+// unchanged when this column has none).
 function parsePairSide(value) {
   const normalized = normalizePairText(value);
   const sideWords = normalized.match(/\b(?:left|right)\b/g);
