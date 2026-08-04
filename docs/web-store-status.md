@@ -23,8 +23,8 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.1 |
-| Latest version submitted for review | 0.1.1 (initial submission) |
+| Latest locally generated version | 0.1.2 (`releases/buildingreports-sidekick-v0.1.2.zip`) |
+| Latest version submitted for review | 0.1.1 (initial submission) — 0.1.2 not yet submitted |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last release
@@ -33,8 +33,8 @@ explicitly says so.
 - **Privacy disclosures need updating?** No — `PRIVACY.md` and
   `docs/chrome-web-store-submission.md` were updated and reviewed against
   the current code on 2026-08-04 for Left/Right Battery pairing context.
-- **Current release notes draft**: see `CHANGELOG.md`'s
-  `## [Unreleased]` section.
+- **0.1.2 release notes**: see `CHANGELOG.md`'s `## [0.1.2]` section
+  (Battery Cleanup Left/Right pair failure propagation).
 
 ## Reminder
 

@@ -18,6 +18,9 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
+- (add notes here before running a release)
+
+## [0.1.2] - 2026-08-04
 - **Added**: Battery Cleanup now fails both sides of an unambiguous
   Left/Right battery pair when either side has a proven failure (expired
   inspection date or failed load test). A pair is matched conservatively
