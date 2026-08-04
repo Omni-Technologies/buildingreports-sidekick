@@ -23,7 +23,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**116 tests, 0 failures** across `tests/*.test.js`
+**130 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `engine.test.js`, `semi-annual.test.js`, `write-queue.test.js`). Synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
@@ -63,7 +63,7 @@ live run, not this file.
 
 ## Adapter version
 
-`ADAPTER_VERSION = 3` (`src/site-adapters/buildingreports/adapter.js`) —
+`ADAPTER_VERSION = 4` (`src/site-adapters/buildingreports/adapter.js`) —
 single-record save API (`applySingleServiceChange`/
 `applySingleBatteryChange`). Bump this constant whenever `adapter.js`
 changes, per the versioned-re-injection scheme in `docs/architecture.md`.
@@ -85,6 +85,17 @@ changes, per the versioned-re-injection scheme in `docs/architecture.md`.
   (intentional — Heat Detector isn't in the five Visual & Functional
   device types, so it already gets `Visual`-only under Semi-Annual). If a
   Semi-Annual One Hitter nuance is ever requested, it doesn't exist yet.
+- Left/Right Battery failure pairing is implemented, unit-tested, and
+  confirmed live (2026-08-04, a real report - no customer/report
+  identifiers recorded here) - Preview correctly identified an unambiguous
+  Left/Right pair, Apply wrote the paired failure (Passed/Service/Comment/
+  Solution/Note) to the counterpart and verified the save, a fresh Preview
+  afterward showed the pair idempotently "already correct," and Undo
+  restored the counterpart to its exact original values. Live testing also
+  surfaced and fixed a real bug: the initial implementation only checked
+  the `direction` column for the Left/Right marker, but real technician
+  entries put it in `description` instead (see
+  `docs/battery-cleanup-rules.md`) - both columns are now checked.
 
 ## Most recent successful live verification
 
@@ -100,6 +111,9 @@ anywhere in this repo):
   variant input), a Failed outcome (Visual & Functional group), and a
   custom/unsupported free-text entry (confirmed left untouched throughout).
 - Battery Cleanup: Preview confirmed working (read-only) post-restoration.
+- Battery Cleanup Left/Right pairing (2026-08-04): see the "Known
+  limitations" note above for the full account, including the real-world
+  Description-column bug this testing found and fixed.
 - The report was left in its original, fully-consistent state after
   testing (confirmed via a final Preview showing zero safe changes across
   the whole report).

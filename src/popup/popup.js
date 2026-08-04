@@ -470,6 +470,7 @@ function renderBatterySummary(summary) {
     `Date Expired: ${summary.dateExpiredCount}`,
     `Failed Load Test: ${summary.failedLoadTestCount}`,
     `Date Expired and Failed Load Test: ${summary.dateExpiredAndFailedLoadTestCount}`,
+    `Failed due to paired Battery: ${summary.pairedFailureCount || 0}`,
     `Outcome Requires Review: ${summary.outcomeRequiresReviewCount}`,
     `Already correct: ${summary.alreadyCorrect}`,
     `Total Batteries affected: ${summary.totalDevicesAffected}`,
@@ -494,7 +495,9 @@ function renderBatterySummary(summary) {
             `Inspection Date: ${escapeHtml(e.inspectionDateDisplay || '(unknown)')}<br/>` +
             `Tested Ah: ${escapeHtml(e.testedAhDisplay || '(unknown)')}<br/>` +
             `Min Ah: ${escapeHtml(e.minAhDisplay || '(unknown)')}<br/>` +
-            `Outcome: ${escapeHtml(e.outcomeLabel)}</div>`
+            `Outcome: ${escapeHtml(e.outcomeLabel)}` +
+            (e.pairedWithScannumber ? ` (paired with Battery #${escapeHtml(e.pairedWithScannumber)})` : '') +
+            `</div>`
         )
         .join('')
     : '<div>No Battery devices found.</div>';

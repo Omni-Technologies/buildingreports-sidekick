@@ -60,8 +60,11 @@ WHAT IT DOES
    normalizes Rated Voltage / Amps / Post Test / Tested Ah formatting,
    clears Pre Test, recalculates Min Ah, corrects Model Number, and sets
    the Passed/Failed outcome from Inspection Date and Tested Ah vs Min
-   Ah — again leaving anything missing, invalid, or suspicious untouched
-   and flagged for review instead of guessed at.
+   Ah. When either side of an unambiguous Left/Right battery pair fails,
+   both sides are failed together; Floor, Direction, Location, Description,
+   and Area/Suite are read only to identify that pair. Anything missing,
+   invalid, or suspicious is flagged instead of guessed at, and ambiguous
+   pairs are left unpaired.
 
 Both actions follow the same safe workflow: Preview (read-only, shows
 exactly what would change and why) → Apply (writes only the changes
@@ -177,9 +180,10 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   BuildingReports.com, and has no `content_scripts` running on any other
   site.
 - **User activity**: No analytics/telemetry of any kind.
-- **Website content**: Yes — device record fields (Service text,
-  Battery attribute values) from the BuildingReports report you have
-  open, read/written locally as described above and in `PRIVACY.md`.
+- **Website content**: Yes — device record fields (Service text, Battery
+  attribute values, and the Floor/Direction/Location/Description/Area-Suite
+  context used to identify battery pairs) from the BuildingReports report
+  you have open, processed locally as described above and in `PRIVACY.md`.
 
 Certify: "I do not sell or transfer user data to third parties" and "I do
 not use or transfer user data for purposes unrelated to the item's single

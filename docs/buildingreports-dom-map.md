@@ -54,6 +54,16 @@ const store = grid.getStore();
   `service`, `comment`, `solution`, `note`, `controlpanel`, `zone`,
   `address`, `installdate`, plus device-attribute-specific fields.
 - Every record field can be read with `record.get('<dataIndex>')`.
+- Battery Cleanup reads `floor`, `direction`, `location`, `description`,
+  and `areasuite` as read-only context for conservative Left/Right pair
+  matching. `areasuite` was added to the adapter's returned record shape in
+  adapter version 4; none of these pairing fields is written by that rule.
+- Confirmed live: the standalone `Left`/`Right` word that identifies a
+  Battery's side is **not** reliably in `direction` - one real report had
+  `direction` holding an unrelated building label for both Batteries in a
+  pair, with the actual marker in `description` instead ("Left Battery"/
+  "Right Battery"). `battery-engine.js`'s pairing logic checks both
+  columns for this reason - see `docs/battery-cleanup-rules.md`.
 
 Useful page globals inside that frame (used for report identity, no DOM
 query needed): `window.ReportBuildingId`, `window.ReportBuildingName`,

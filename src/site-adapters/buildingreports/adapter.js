@@ -22,7 +22,7 @@
 // background.js's own per-tab applyInProgress guard is the primary defense
 // against overlapping Apply/Undo runs regardless.
 (function () {
-  const ADAPTER_VERSION = 3;
+  const ADAPTER_VERSION = 4;
   if (window.__brSidekickAdapter && window.__brSidekickAdapter.version >= ADAPTER_VERSION) {
     return;
   }
@@ -44,6 +44,7 @@
     'solution',
     'modelnumber',
     'floor',
+    'areasuite',
     'manufacturer',
     'passed',
     'tested',

@@ -11,9 +11,11 @@ It currently implements two independent cleanup actions:
   anything blank, ambiguous, unsupported, or already correct untouched.
 - **Battery Cleanup**: scans every Battery device (regardless of Inspection
   Profile) and normalizes Rated Voltage/Amps/Post Test/Tested Ah formatting,
-  clears Pre Test, recalculates Min Ah, and corrects Model Number - while
-  leaving missing, invalid, or suspicious values untouched and flagged for
-  review. See `docs/battery-cleanup-rules.md` for the full rule reference.
+  clears Pre Test, recalculates Min Ah, corrects Model Number, and fails
+  both sides of an unambiguous matching Left/Right battery pair when either
+  side fails - while leaving missing, invalid, or suspicious values
+  untouched and flagged for review, and leaving ambiguous pairs unpaired.
+  See `docs/battery-cleanup-rules.md` for the full rule reference.
 
 The two actions are fully independent: separate Preview/Apply/Undo buttons,
 separate Undo history, and Battery Cleanup does not require picking an

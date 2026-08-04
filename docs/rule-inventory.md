@@ -39,6 +39,7 @@ all rows below: `src/cleanup/rules/battery-cleanup.js` (attribute rules) /
 | Model Number derived from actual Rated Voltage + Amps (`<V>V-<Ah>Ah`) | Implemented | Yes | Never trusts existing Model Number; skipped if either input invalid |
 | Pass/Fail outcome: expired when Inspection Date ≤ now − 3 calendar years | Implemented | Yes | Local-calendar-day comparison, not UTC |
 | Pass/Fail outcome: failed load test when Tested Ah < newly-calculated Min Ah | Implemented | Yes | `0.00` Tested Ah fails like any other value, no exemption |
+| Left/Right pair propagation: a proven failure on either side fails its unambiguous counterpart | Implemented | Yes | Matches Floor, Direction, Location, Description, and Area/Suite; the Left/Right marker itself is read from whichever of Direction/Description actually has it (confirmed live it's not reliably Direction); skips ambiguous duplicates |
 | Failing outcome sets Passed=unchecked, Service=`Visual & Functional, Failed`, Solution=`Replace Battery`, Note overwritten with exact wording (date expired / failed load test / both) | Implemented | Yes | Comment = `Date Expired` or `Failed Test` (date always wins if both) |
 | Passing outcome sets Passed=checked, Service=`Visual & Functional, Passed`, Comment/Solution cleared, **Note untouched** | Implemented | Yes | Existing replacement-history text in Note is preserved on a pass |
 | Missing/invalid Inspection Date, Min Ah, or Tested Ah with no proven failure → `REVIEW`, outcome fields untouched | Implemented | Unit only | Attribute formatting still applies independently |
@@ -49,5 +50,5 @@ all rows below: `src/cleanup/rules/battery-cleanup.js` (attribute rules) /
 | Piece | Source file | Status | Notes |
 |---|---|---|---|
 | Paced write queue (concurrency 1, checkpointed, rate-limit backoff, Pause/Resume/Cancel Remaining) | `write-queue.js` | Implemented | Used by all 4 write paths; see `docs/architecture.md` |
-| Single-record adapter save + verify | `adapter.js` `applySingleFieldChange` | Implemented | `ADAPTER_VERSION = 3` |
+| Single-record adapter save + verify | `adapter.js` `applySingleFieldChange` | Implemented | `ADAPTER_VERSION = 4` |
 | Preview/Apply/Undo message plumbing | `background.js` | Implemented | Generic per checkpoint `kind` |

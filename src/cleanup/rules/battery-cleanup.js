@@ -171,13 +171,16 @@ function asDisplayString(value) {
 // comment, solution, note (semantic names - see file header).
 // `now` (a Date) is the reference point for the expiration calculation -
 // pass a fixed value in tests, defaults to the current moment.
+// `options.forcedFailureOutcome` is used only by the report-level pair rule
+// after another Battery in an unambiguous Left/Right pair has proven a
+// failure; `pairedWithScannumber` identifies that source in Preview.
 //
 // Returns { scannumber, devicetype, isBattery, bucket, fieldChanges,
 // reviewFlags, outcome, outcomeDetail }. `fieldChanges` are the only changes
 // Apply is ever allowed to write; `reviewFlags` are surfaced to the user and
 // never auto-applied. `outcome` is one of BatteryOutcome.* (or null for a
 // non-battery record).
-export function classifyBatteryRecord(record, now = new Date()) {
+export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   const devicetype = record.devicetype || '';
   const scannumber = record.scannumber;
 
@@ -190,6 +193,8 @@ export function classifyBatteryRecord(record, now = new Date()) {
       fieldChanges: [],
       reviewFlags: [],
       outcome: null,
+      intrinsicOutcome: null,
+      pairedFailure: null,
       outcomeDetail: null,
     };
   }
@@ -307,22 +312,31 @@ export function classifyBatteryRecord(record, now = new Date()) {
     && toHundredths(testedAhValue) < toHundredths(minAhValue);
 
   // --- Determine Passed / Failed / Review ---
-  let outcome;
+  let intrinsicOutcome;
   if (dateExpiredProven && loadTestFailedProven) {
-    outcome = BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST;
+    intrinsicOutcome = BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST;
   } else if (dateExpiredProven) {
-    outcome = BatteryOutcome.DATE_EXPIRED;
+    intrinsicOutcome = BatteryOutcome.DATE_EXPIRED;
   } else if (loadTestFailedProven) {
-    outcome = BatteryOutcome.FAILED_LOAD_TEST;
+    intrinsicOutcome = BatteryOutcome.FAILED_LOAD_TEST;
   } else if (dateParsed.state === 'valid' && minAhValue != null && testedAhValue != null) {
     // Neither failure is proven, and every value needed to prove a pass is
     // itself known valid - safe to pass.
-    outcome = BatteryOutcome.PASSED;
+    intrinsicOutcome = BatteryOutcome.PASSED;
   } else {
     // No failure proven, but not everything needed to prove a pass is
     // known either - never assume missing data means Passed.
-    outcome = BatteryOutcome.REVIEW;
+    intrinsicOutcome = BatteryOutcome.REVIEW;
   }
+
+  // Report-level Battery Cleanup may force the otherwise-passing/review
+  // half of an unambiguous Left/Right pair to share its counterpart's
+  // proven failure. A Battery's own proven failure always remains its
+  // source of truth; pairing never replaces one intrinsic failure with
+  // another Battery's reason.
+  const forcedFailureOutcome = options.forcedFailureOutcome;
+  const forcedByPair = !isFailureOutcome(intrinsicOutcome) && isFailureOutcome(forcedFailureOutcome);
+  const outcome = forcedByPair ? forcedFailureOutcome : intrinsicOutcome;
 
   // --- Generate the outcome's Passed/Service/Comment/Solution/Note changes ---
   if (outcome === BatteryOutcome.PASSED) {
@@ -395,12 +409,22 @@ export function classifyBatteryRecord(record, now = new Date()) {
     fieldChanges,
     reviewFlags,
     outcome,
+    intrinsicOutcome,
+    pairedFailure: forcedByPair
+      ? { sourceScannumber: options.pairedWithScannumber, outcome: forcedFailureOutcome }
+      : null,
     outcomeDetail: {
       inspectionDateDisplay: formatDateDisplay(dateParsed),
       testedAhDisplay: testedAhValue != null ? formatTwoDecimals(testedAhValue) : '',
       minAhDisplay: minAhValue != null ? formatTwoDecimals(minAhValue) : '',
     },
   };
+}
+
+export function isFailureOutcome(outcome) {
+  return outcome === BatteryOutcome.DATE_EXPIRED
+    || outcome === BatteryOutcome.FAILED_LOAD_TEST
+    || outcome === BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST;
 }
 
 function pickDeviceBucket(fieldChanges, reviewFlags) {

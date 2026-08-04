@@ -126,6 +126,46 @@ dataIndex name 1:1, so the adapter's `toRawBatteryFields` falls back to the
 semantic name itself when there's no `BATTERY_FIELD_MAP` entry, rather than
 needing five trivial identity map entries.
 
+### Left/Right battery pairs
+
+After each Battery has its own outcome classified, `battery-engine.js`
+checks for a matching Left/Right pair. If either side has a proven failing
+outcome, the other side receives that same failure outcome so the pair is
+failed together.
+
+A pair is accepted only when exactly one Left and one Right Battery match
+on all five requested Device Editor columns:
+
+- Floor (`floor`)
+- Direction (`direction`)
+- Location (`location`)
+- Description (`description`)
+- Area/Suite (`areasuite`)
+
+The standalone `Left`/`Right` word itself is looked for in **both**
+Direction and Description (whichever column the technician actually put it
+in - confirmed live against a real report, see below), and whichever one
+has it gets that word swapped out (`Left`<->`Right`) before the rest of its
+text is compared; the other column is compared as plain text like Floor/
+Location/Area-Suite. Matching is case-insensitive, trims leading/trailing
+whitespace, and collapses repeated internal whitespace. A record is left
+unpaired (never guessed) when: the marker appears in neither column, the
+marker appears in both columns, either column has more than one side word,
+any identifying column mismatches between the candidates, or there's more
+than one Left or Right candidate in a group.
+
+**Confirmed live** (a real report, 2026-08-04, no customer/report
+identifiers recorded here): real technician entries do not reliably put
+`Left`/`Right` in Direction - one real pair had Direction holding an
+unrelated building label for both Batteries, with the actual marker in
+Description ("Left Battery"/"Right Battery") instead. This is why both
+columns are checked rather than only Direction.
+
+The paired side uses the source Battery's existing failure outputs (Date
+Expired, Failed Load Test, or both). If both Batteries have their own
+proven failures, each keeps its own outcome. Preview reports how many
+Batteries were failed due to their pair and identifies the source Battery.
+
 ### Expiration (date-only, local calendar)
 
 ```

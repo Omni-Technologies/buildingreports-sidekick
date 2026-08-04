@@ -31,8 +31,8 @@ explicitly says so.
 
 - **Permissions changed since prior release?** No.
 - **Privacy disclosures need updating?** No — `PRIVACY.md` and
-  `docs/chrome-web-store-submission.md` were last reviewed against the
-  code as of the 0.1.1 release.
+  `docs/chrome-web-store-submission.md` were updated and reviewed against
+  the current code on 2026-08-04 for Left/Right Battery pairing context.
 - **Current release notes draft**: see `CHANGELOG.md`'s
   `## [Unreleased]` section.
 

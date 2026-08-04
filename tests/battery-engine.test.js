@@ -156,3 +156,188 @@ test('non-battery devices are never included in changes[] or outcome counts', ()
   assert.equal(summary.changes.find((c) => c.scannumber === 'smoke1'), undefined);
   assert.equal(summary.totalBatteryDevicesFound, 5);
 });
+
+// --- Left/Right paired-battery failure propagation ---
+
+const PAIR_CONTEXT = {
+  floor: '2',
+  location: 'Electrical Room',
+  description: 'Fire Alarm Panel Batteries',
+  areasuite: 'Suite 200',
+};
+
+test('a failed Left battery also fails its matching Right battery', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left1', direction: 'Left', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right1', direction: 'Right' }),
+  ], NOW);
+
+  const right = summary.results.find((r) => r.scannumber === 'right1');
+  const rightChange = summary.changes.find((c) => c.scannumber === 'right1');
+  assert.equal(right.intrinsicOutcome, BatteryOutcome.PASSED);
+  assert.equal(right.outcome, BatteryOutcome.FAILED_LOAD_TEST);
+  assert.deepEqual(right.pairedFailure, {
+    sourceScannumber: 'left1',
+    outcome: BatteryOutcome.FAILED_LOAD_TEST,
+  });
+  assert.equal(rightChange.fields.passed, false);
+  assert.equal(rightChange.fields.service, 'Visual & Functional, Failed');
+  assert.equal(rightChange.fields.comment, 'Failed Test');
+  assert.equal(rightChange.fields.solution, 'Replace Battery');
+  assert.equal(rightChange.fields.note, 'Failed Load Test - Replace Battery');
+  assert.equal(summary.pairedFailureCount, 1);
+  assert.equal(summary.failedLoadTestCount, 2);
+  assert.equal(summary.passingBatteries, 0);
+  assert.equal(
+    summary.outcomeExamples.find((example) => example.scannumber === 'right1').pairedWithScannumber,
+    'left1'
+  );
+});
+
+test('a failed Right battery also fails its matching Left battery', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left2', direction: 'Left' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right2', direction: 'Right', inspectionDate: '2020-01-01' }),
+  ], NOW);
+
+  const left = summary.results.find((r) => r.scannumber === 'left2');
+  assert.equal(left.outcome, BatteryOutcome.DATE_EXPIRED);
+  assert.equal(left.pairedFailure.sourceScannumber, 'right2');
+  assert.equal(summary.dateExpiredCount, 2);
+  assert.equal(summary.pairedFailureCount, 1);
+});
+
+test('pair matching is case/whitespace tolerant across all five identifying columns', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({
+      scannumber: 'left-normalized',
+      floor: '  SECOND   FLOOR ',
+      direction: ' Panel LEFT ',
+      location: ' Electrical   Room ',
+      description: ' Panel Batteries ',
+      areasuite: ' SUITE 200 ',
+      testedAh: '1.00',
+    }),
+    makeBatteryRecord({
+      scannumber: 'right-normalized',
+      floor: 'second floor',
+      direction: 'panel right',
+      location: 'electrical room',
+      description: 'panel batteries',
+      areasuite: 'suite 200',
+    }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 1);
+  assert.equal(summary.results.find((r) => r.scannumber === 'right-normalized').pairedFailure.sourceScannumber, 'left-normalized');
+});
+
+test('a Left/Right battery is not paired when any requested identifying column differs', async (t) => {
+  const mismatches = [
+    ['floor', '3'],
+    ['location', 'Mechanical Room'],
+    ['description', 'Auxiliary Panel Batteries'],
+    ['areasuite', 'Suite 201'],
+    ['direction', 'Rack Right'],
+  ];
+
+  for (const [field, value] of mismatches) {
+    await t.test(field, () => {
+      const rightOverrides = { ...PAIR_CONTEXT, scannumber: `right-${field}`, direction: 'Right', [field]: value };
+      const summary = runBatteryCleanup([
+        makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: `left-${field}`, direction: 'Left', testedAh: '1.00' }),
+        makeBatteryRecord(rightOverrides),
+      ], NOW);
+      assert.equal(summary.pairedFailureCount, 0);
+      assert.equal(summary.failedLoadTestCount, 1);
+      assert.equal(summary.passingBatteries, 1);
+    });
+  }
+});
+
+test('ambiguous duplicate Left/Right candidates are not guessed as a pair', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-ambiguous', direction: 'Left', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-ambiguous-1', direction: 'Right' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-ambiguous-2', direction: 'Right' }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 0);
+  assert.equal(summary.failedLoadTestCount, 1);
+  assert.equal(summary.passingBatteries, 2);
+});
+
+test('Left/Right marker in Description (not Direction) still pairs - confirmed live report pattern', () => {
+  // Confirmed live on a real report: Direction held an unrelated building
+  // label for both Batteries, and the actual Left/Right marker was in
+  // Description ("Left Battery"/"Right Battery") instead. This is the
+  // pattern that motivated checking both columns rather than only
+  // Direction.
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({
+      scannumber: 'left-desc',
+      floor: '1st Floor',
+      direction: 'Building 231 B',
+      location: 'FACP Room',
+      description: 'Left Battery',
+      areasuite: '',
+      testedAh: '1.00',
+    }),
+    makeBatteryRecord({
+      scannumber: 'right-desc',
+      floor: '1st Floor',
+      direction: 'Building 231 B',
+      location: 'FACP Room',
+      description: 'Right Battery',
+      areasuite: '',
+    }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 1);
+  assert.equal(summary.results.find((r) => r.scannumber === 'right-desc').pairedFailure.sourceScannumber, 'left-desc');
+});
+
+test('a Left/Right marker in BOTH Direction and Description is treated as ambiguous, not paired', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-both', direction: 'Left', description: 'Left Battery', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-both', direction: 'Right', description: 'Right Battery' }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 0);
+  assert.equal(summary.failedLoadTestCount, 1);
+  assert.equal(summary.passingBatteries, 1);
+});
+
+test('no Left/Right marker in either Direction or Description leaves both unpaired', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-none', direction: 'Building A', description: 'Panel Batteries', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-none', direction: 'Building A', description: 'Panel Batteries' }),
+  ], NOW);
+
+  assert.equal(summary.pairedFailureCount, 0);
+  assert.equal(summary.failedLoadTestCount, 1);
+  assert.equal(summary.passingBatteries, 1);
+});
+
+test('paired failure cleanup is idempotent after applying both sides', () => {
+  const records = [
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-repeat', direction: 'Left', testedAh: '1.00' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-repeat', direction: 'Right' }),
+  ];
+  const first = runBatteryCleanup(records, NOW);
+  const applied = records.map((record) => {
+    const change = first.changes.find((item) => item.scannumber === record.scannumber);
+    return change ? { ...record, ...change.fields } : record;
+  });
+
+  const second = runBatteryCleanup(applied, NOW);
+  assert.equal(second.pairedFailureCount, 1);
+  assert.equal(second.totalDevicesAffected, 0);
+  assert.equal(second.totalFieldsAffected, 0);
+
+  const restored = applied.map((record) => {
+    const change = first.changes.find((item) => item.scannumber === record.scannumber);
+    return change ? { ...record, ...change.before } : record;
+  });
+  assert.deepEqual(restored, records, 'Undo restores both Batteries to their exact original values');
+});

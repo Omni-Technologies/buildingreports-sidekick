@@ -1,6 +1,6 @@
 # Privacy Policy — BuildingReports Sidekick
 
-**Last updated: 2026-07-28**
+**Last updated: 2026-08-04**
 
 BuildingReports Sidekick ("this extension") is an unofficial, independent
 productivity tool for people who already have authorized login access to
@@ -31,11 +31,15 @@ source code, which is auditable in full.
 The extension reads and writes exactly two kinds of information, both
 scoped to the BuildingReports Device Editor page you already have open:
 
-1. **Device Service field / Battery attribute fields** — read from the
+1. **Device Service field / Battery fields and pairing context** — read from the
    report's own device grid (via BuildingReports' own in-page ExtJS
    application state, not a network request the extension makes itself),
-   classified locally, and — only if you click **Apply** — written back
-   through BuildingReports' own Save button/save API.
+   classified locally, and — only if you click **Apply** — the Service and
+   Battery outcome/attribute changes are written back through
+   BuildingReports' own Save button/save API. Battery Cleanup also reads
+   Floor, Direction, Location, Description, and Area/Suite solely to match
+   Left/Right battery pairs; those identifying fields are never written or
+   stored by the extension.
 2. **A local Undo/checkpoint history** — stored only in
    `chrome.storage.local` (a storage area private to your browser
    profile, never synced to any account or server by this extension):

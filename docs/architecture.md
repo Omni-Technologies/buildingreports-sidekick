@@ -121,11 +121,12 @@ but a genuinely older one is fully replaced by re-running the IIFE. Bump
 `ADAPTER_VERSION` whenever `adapter.js` changes. Confirmed live: with a
 stale adapter object left in the tab, reloading the extension and running
 Preview/Apply again picks up the new logic with no tab reload required.
-`ADAPTER_VERSION` is currently `3` - bumped when the bulk
+`ADAPTER_VERSION` is currently `4`; version 3 was introduced when the bulk
 `applyFieldChanges(changes[])`/`applyServiceChanges`/`applyBatteryChanges`
 API was replaced with the single-record `applySingleFieldChange(scannumber,
 fields)`/`applySingleServiceChange`/`applySingleBatteryChange` API (see
-"Throttled write queue" below for why).
+"Throttled write queue" below for why), and version 4 adds the read-only
+`areasuite` field needed for Left/Right Battery pairing.
 
 ## Throttled write queue
 
@@ -248,6 +249,11 @@ Service Entries, not a variant of it - added by following
   `{ fieldChanges, reviewFlags }` per record rather than one bucket - see
   `docs/battery-cleanup-rules.md` for the full rule reference and bucket
   table.
+- After per-record classification, `battery-engine.js` performs the one
+  report-level rule: a proven failure propagates across an unambiguous
+  Left/Right pair matched by Floor, Direction, Location, Description, and
+  Area/Suite. The counterpart's fields are folded into the same per-device
+  change object and use the existing write queue unchanged.
 - One save per device: `applySingleBatteryChange` in the adapter groups
   every changed field for a given Battery into a single
   `rec.set({...})` call before the shared Save-button flow runs, so a

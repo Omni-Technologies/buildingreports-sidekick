@@ -32,10 +32,12 @@ reports, operated from a popup on the report's **Device Editor** page.
    **Semi-Annual** (see below for how they differ). Preview / Apply / Undo.
 2. **Battery Cleanup** — normalizes Battery devices' Rated Voltage/Amps/
    Post Test/Tested Ah formatting, clears Pre Test, recalculates Min Ah,
-   corrects Model Number, and sets the Passed/Failed outcome from Inspection
-   Date + Tested Ah vs Min Ah. Universal (no Inspection Profile). Preview /
-   Apply / Undo, fully independent of Service Cleanup (separate Undo
-   history). Full rule reference: `docs/battery-cleanup-rules.md`.
+   corrects Model Number, sets the Passed/Failed outcome from Inspection
+   Date + Tested Ah vs Min Ah, and propagates a proven failure across an
+   unambiguous matching Left/Right Battery pair. Universal (no Inspection
+   Profile). Preview / Apply / Undo, fully independent of Service Cleanup
+   (separate Undo history). Full rule reference:
+   `docs/battery-cleanup-rules.md`.
 
 Both actions share one popup, one background service worker, one site
 adapter, and — critically — one paced write coordinator (see below).
@@ -162,7 +164,7 @@ Full design: `docs/architecture.md`'s "Throttled write queue" section.
 ## The BuildingReports ExtJS adapter
 
 `adapter.js` (MAIN-world, injected on demand, `window.__brSidekickAdapter`,
-currently `ADAPTER_VERSION = 3`) exposes: `detect`, `getAllRecords`,
+currently `ADAPTER_VERSION = 4`) exposes: `detect`, `getAllRecords`,
 `applySingleServiceChange(scannumber, newValue)`,
 `applySingleBatteryChange(scannumber, semanticFields)`, `isBusy`. It is the
 **only** file allowed to touch `window.Ext`. Frame chain: top → topframe
@@ -196,7 +198,7 @@ detail: `docs/buildingreports-dom-map.md`.
 npm test
 ```
 
-`node --test tests/*.test.js` — 116 tests as of this writing, synthetic
+`node --test tests/*.test.js` — 130 tests as of this writing, synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM. Run this after
 every change. See `docs/current-state.md` for the current exact count.
 

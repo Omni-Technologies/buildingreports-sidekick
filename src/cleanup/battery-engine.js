@@ -1,4 +1,9 @@
-import { classifyBatteryRecord, BatteryBucket, BatteryOutcome } from './rules/battery-cleanup.js';
+import {
+  classifyBatteryRecord,
+  isFailureOutcome,
+  BatteryBucket,
+  BatteryOutcome,
+} from './rules/battery-cleanup.js';
 
 // Which per-field bucket increments which Preview count. See
 // docs/battery-cleanup-rules.md for how to extend this when a new field
@@ -49,7 +54,8 @@ const OUTCOME_LABELS = {
 // tests. Preview and Apply each call this fresh (see background.js), so
 // Apply always re-evaluates expiration against the moment it actually runs.
 export function runBatteryCleanup(records, now = new Date()) {
-  const results = records.map((record) => classifyBatteryRecord(record, now));
+  const initialResults = records.map((record) => classifyBatteryRecord(record, now));
+  const results = applyPairedFailures(records, initialResults, now);
   const batteryResults = results.filter((r) => r.isBattery);
 
   const counts = Object.fromEntries(Object.values(FIELD_TO_COUNT_KEY).map((k) => [k, 0]));
@@ -62,11 +68,13 @@ export function runBatteryCleanup(records, now = new Date()) {
   let failedLoadTestCount = 0;
   let dateExpiredAndFailedLoadTestCount = 0;
   let outcomeRequiresReviewCount = 0;
+  let pairedFailureCount = 0;
   const changes = [];
 
   for (const r of batteryResults) {
     if (r.bucket === BatteryBucket.ALREADY_CORRECT) alreadyCorrect += 1;
     if (r.reviewFlags.length > 0) devicesRequiringReview += 1;
+    if (r.pairedFailure) pairedFailureCount += 1;
 
     switch (r.outcome) {
       case BatteryOutcome.PASSED:
@@ -115,6 +123,7 @@ export function runBatteryCleanup(records, now = new Date()) {
     failedLoadTestCount,
     dateExpiredAndFailedLoadTestCount,
     outcomeRequiresReviewCount,
+    pairedFailureCount,
     devicesRequiringReview,
     totalDevicesAffected: changes.length,
     totalFieldsAffected,
@@ -123,6 +132,85 @@ export function runBatteryCleanup(records, now = new Date()) {
     reviewItems: batteryResults.filter((r) => r.reviewFlags.length > 0),
     examples: pickExamples(batteryResults),
     outcomeExamples: pickOutcomeExamples(batteryResults),
+  };
+}
+
+// A battery pair is only inferred when exactly one Left and one Right
+// Battery share Floor, Location, Area/Suite, and the rest of the Direction
+// and Description text. Ambiguous duplicates are deliberately skipped so a
+// cleanup can never fail the wrong device by guessing.
+//
+// Confirmed live: the Left/Right marker is not reliably in the Direction
+// column - real technician entries put it in Description instead
+// (Direction held an unrelated building label; Description held "Left
+// Battery"/"Right Battery"). So both columns are checked for the marker,
+// and whichever one actually has
+// it gets its side-word stripped for the match key - the other column is
+// compared as plain text. If the marker appears in both columns, or in
+// neither, or more than once total, the record is treated as unpaired
+// rather than guessed.
+function applyPairedFailures(records, initialResults, now) {
+  const results = [...initialResults];
+  const groups = new Map();
+
+  for (let index = 0; index < records.length; index += 1) {
+    if (!initialResults[index].isBattery) continue;
+    const direction = parsePairSide(records[index].direction);
+    const description = parsePairSide(records[index].description);
+    const totalSideWords = direction.count + description.count;
+    if (totalSideWords !== 1) continue;
+    const side = direction.side || description.side;
+
+    const key = JSON.stringify([
+      normalizePairText(records[index].floor),
+      direction.stem,
+      normalizePairText(records[index].location),
+      description.stem,
+      normalizePairText(records[index].areasuite),
+    ]);
+    if (!groups.has(key)) groups.set(key, { left: [], right: [] });
+    groups.get(key)[side].push(index);
+  }
+
+  for (const group of groups.values()) {
+    if (group.left.length !== 1 || group.right.length !== 1) continue;
+    const leftIndex = group.left[0];
+    const rightIndex = group.right[0];
+    const leftOutcome = initialResults[leftIndex].outcome;
+    const rightOutcome = initialResults[rightIndex].outcome;
+
+    if (isFailureOutcome(leftOutcome) && !isFailureOutcome(rightOutcome)) {
+      results[rightIndex] = classifyBatteryRecord(records[rightIndex], now, {
+        forcedFailureOutcome: leftOutcome,
+        pairedWithScannumber: initialResults[leftIndex].scannumber,
+      });
+    } else if (isFailureOutcome(rightOutcome) && !isFailureOutcome(leftOutcome)) {
+      results[leftIndex] = classifyBatteryRecord(records[leftIndex], now, {
+        forcedFailureOutcome: rightOutcome,
+        pairedWithScannumber: initialResults[rightIndex].scannumber,
+      });
+    }
+  }
+
+  return results;
+}
+
+function normalizePairText(value) {
+  return value == null ? '' : String(value).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+// Extracts a standalone Left/Right word from a single column's text.
+// `count` lets the caller require the marker appear exactly once across
+// BOTH the Direction and Description columns combined - `side`/`stem` are
+// only meaningful when this column is the one that had it.
+function parsePairSide(value) {
+  const normalized = normalizePairText(value);
+  const sideWords = normalized.match(/\b(?:left|right)\b/g);
+  if (!sideWords) return { side: null, stem: normalized, count: 0 };
+  return {
+    side: sideWords[0],
+    stem: normalized.replace(/\b(?:left|right)\b/, '{side}'),
+    count: sideWords.length,
   };
 }
 
@@ -160,6 +248,7 @@ function pickOutcomeExamples(batteryResults, limit = 20) {
         scannumber: r.scannumber,
         outcome: r.outcome,
         outcomeLabel: OUTCOME_LABELS[r.outcome] || r.outcome,
+        pairedWithScannumber: r.pairedFailure ? r.pairedFailure.sourceScannumber : null,
         inspectionDateDisplay: r.outcomeDetail.inspectionDateDisplay,
         testedAhDisplay: r.outcomeDetail.testedAhDisplay,
         minAhDisplay: r.outcomeDetail.minAhDisplay,
