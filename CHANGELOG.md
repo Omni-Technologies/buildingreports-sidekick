@@ -20,6 +20,14 @@ When writing an entry, say what changed from the user's point of view:
 ## [Unreleased]
 - (add notes here before running a release)
 
+## [0.1.3] - 2026-08-04
+- **Fixed**: Battery Cleanup's Left/Right pair matching no longer assumes
+  the Left/Right marker lives in a specific column (Direction/Description).
+  It now scans all five identifying columns (Floor, Direction, Location,
+  Description, Area/Suite) for the marker, since different reports don't
+  put it in the same place - the pair is still only matched when the
+  marker appears in exactly one of them.
+
 ## [0.1.2] - 2026-08-04
 - **Added**: Battery Cleanup now fails both sides of an unambiguous
   Left/Right battery pair when either side has a proven failure (expired

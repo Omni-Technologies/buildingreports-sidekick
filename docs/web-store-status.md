@@ -23,8 +23,8 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.2 (`releases/buildingreports-sidekick-v0.1.2.zip`) |
-| Latest version submitted for review | 0.1.1 (initial submission) — 0.1.2 not yet submitted |
+| Latest locally generated version | 0.1.3 (`releases/buildingreports-sidekick-v0.1.3.zip`) |
+| Latest version submitted for review | 0.1.1 (initial submission) — 0.1.3 not yet submitted |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last release
@@ -33,8 +33,12 @@ explicitly says so.
 - **Privacy disclosures need updating?** No — `PRIVACY.md` and
   `docs/chrome-web-store-submission.md` were updated and reviewed against
   the current code on 2026-08-04 for Left/Right Battery pairing context.
-- **0.1.2 release notes**: see `CHANGELOG.md`'s `## [0.1.2]` section
-  (Battery Cleanup Left/Right pair failure propagation).
+- **0.1.3 release notes**: see `CHANGELOG.md`'s `## [0.1.3]` and
+  `## [0.1.2]` sections (Battery Cleanup Left/Right pair failure
+  propagation, generalized to scan all five identifying columns for the
+  marker rather than assuming Direction/Description). 0.1.2 was built
+  locally but never submitted, so 0.1.3 supersedes it - only 0.1.3 should
+  be uploaded.
 
 ## Reminder
 
