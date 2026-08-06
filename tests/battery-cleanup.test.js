@@ -223,18 +223,18 @@ test('a Service-cleanup style record (no battery fields at all) is simply not a 
 
 // --- Pass/Fail outcome: expiration date-only calendar logic ---
 
-test('Inspection Date exactly three calendar years old fails (expired)', () => {
-  const r = classifyBatteryRecord(makeBatteryRecord({ inspectionDate: '2023-07-24' }), NOW);
+test('Install Date exactly three calendar years old fails (expired)', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ installDate: '2023-07-24' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED);
 });
 
-test('Inspection Date more than three calendar years old fails (expired)', () => {
-  const r = classifyBatteryRecord(makeBatteryRecord({ inspectionDate: '2020-01-01' }), NOW);
+test('Install Date more than three calendar years old fails (expired)', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ installDate: '2020-01-01' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED);
 });
 
-test('Inspection Date one day less than three years old does not fail by date', () => {
-  const r = classifyBatteryRecord(makeBatteryRecord({ inspectionDate: '2023-07-25' }), NOW);
+test('Install Date one day less than three years old does not fail by date', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ installDate: '2023-07-25' }), NOW);
   assert.notEqual(r.outcome, BatteryOutcome.DATE_EXPIRED);
   assert.notEqual(r.outcome, BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
   assert.equal(r.outcome, BatteryOutcome.PASSED);
@@ -274,7 +274,7 @@ test('failure uses the newly calculated Min Ah, not a stale stored Min Ah value'
 // --- Pass/Fail outcome: the three failure outputs ---
 
 test('date expired only: Passed unchecked, Service/Comment/Solution/Note set accordingly', () => {
-  const r = classifyBatteryRecord(makeBatteryRecord({ inspectionDate: '2020-01-01' }), NOW);
+  const r = classifyBatteryRecord(makeBatteryRecord({ installDate: '2020-01-01' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED);
   assert.equal(fieldChange(r, 'passed').after, false);
   assert.equal(fieldChange(r, 'service').after, 'Visual & Functional, Failed');
@@ -295,7 +295,7 @@ test('failed load test only: Passed unchecked, Service/Comment/Solution/Note set
 
 test('date expired and failed load test: Comment stays exactly "Date Expired", Note records both', () => {
   const r = classifyBatteryRecord(
-    makeBatteryRecord({ inspectionDate: '2020-01-01', testedAh: '1.00' }),
+    makeBatteryRecord({ installDate: '2020-01-01', testedAh: '1.00' }),
     NOW
   );
   assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
@@ -329,21 +329,21 @@ test('a passing battery preserves an existing Note untouched, even with replacem
 
 // --- Pass/Fail outcome: missing/invalid data is deterministic, never assumed Passed ---
 
-test('missing Inspection Date with a proven failed load test still fails', () => {
-  const r = classifyBatteryRecord(makeBatteryRecord({ inspectionDate: '', testedAh: '1.00' }), NOW);
+test('missing Install Date with a proven failed load test still fails', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ installDate: '', testedAh: '1.00' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.FAILED_LOAD_TEST);
 });
 
 test('invalid Tested Ah with a proven expired date still fails', () => {
   const r = classifyBatteryRecord(
-    makeBatteryRecord({ inspectionDate: '2020-01-01', testedAh: 'not-a-number' }),
+    makeBatteryRecord({ installDate: '2020-01-01', testedAh: 'not-a-number' }),
     NOW
   );
   assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED);
 });
 
-test('missing Inspection Date with an otherwise-passing load test requires review, not Passed', () => {
-  const r = classifyBatteryRecord(makeBatteryRecord({ inspectionDate: '' }), NOW);
+test('missing Install Date with an otherwise-passing load test requires review, not Passed', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ installDate: '' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.REVIEW);
   assert.equal(fieldChange(r, 'passed'), undefined);
   assert.equal(fieldChange(r, 'service'), undefined);
@@ -352,7 +352,7 @@ test('missing Inspection Date with an otherwise-passing load test requires revie
   assert.equal(flag.bucket, BatteryBucket.OUTCOME_REQUIRES_REVIEW);
 });
 
-test('missing Tested Ah with a valid, current Inspection Date requires review, not Passed', () => {
+test('missing Tested Ah with a valid, current Install Date requires review, not Passed', () => {
   const r = classifyBatteryRecord(makeBatteryRecord({ testedAh: '' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.REVIEW);
   assert.equal(fieldChange(r, 'passed'), undefined);

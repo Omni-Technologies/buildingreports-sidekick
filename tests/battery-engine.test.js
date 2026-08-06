@@ -88,10 +88,10 @@ test('running the cleanup twice on its own output is a no-op', () => {
 function buildOutcomeReport() {
   return [
     makeBatteryRecord({ scannumber: 'pass1' }), // already-passing baseline
-    makeBatteryRecord({ scannumber: 'expired1', inspectionDate: '2020-01-01' }),
+    makeBatteryRecord({ scannumber: 'expired1', installDate: '2020-01-01' }),
     makeBatteryRecord({ scannumber: 'failedload1', testedAh: '1.00' }),
-    makeBatteryRecord({ scannumber: 'both1', inspectionDate: '2020-01-01', testedAh: '1.00' }),
-    makeBatteryRecord({ scannumber: 'review1', inspectionDate: '' }),
+    makeBatteryRecord({ scannumber: 'both1', installDate: '2020-01-01', testedAh: '1.00' }),
+    makeBatteryRecord({ scannumber: 'review1', installDate: '' }),
   ];
 }
 
@@ -197,7 +197,7 @@ test('a failed Left battery also fails its matching Right battery', () => {
 test('a failed Right battery also fails its matching Left battery', () => {
   const summary = runBatteryCleanup([
     makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left2', direction: 'Left' }),
-    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right2', direction: 'Right', inspectionDate: '2020-01-01' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right2', direction: 'Right', installDate: '2020-01-01' }),
   ], NOW);
 
   const left = summary.results.find((r) => r.scannumber === 'left2');

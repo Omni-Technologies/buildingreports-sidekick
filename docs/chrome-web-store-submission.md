@@ -53,13 +53,20 @@ WHAT IT DOES
 1. Clean Up Service Entries — scans every device's Service field in the
    currently open report and normalizes clear "Visual [& Functional],
    Passed/Failed" variations to one canonical form, under either an
-   Annual or Semi-Annual inspection profile you choose. Anything blank,
-   ambiguous, unsupported, or already correct is left untouched.
+   Annual or Semi-Annual inspection profile you choose. Communicator,
+   Communication Line, and Monitoring devices have their own fixed
+   Service-field formats instead (e.g. "Restored @ <time> <date>" for
+   Communicator, "Yes, <time>" for Communication Line/Monitoring) and are
+   normalized the same way under either profile; Communicator and
+   Monitoring also mirror the corrected time into one small device-attribute
+   field BuildingReports itself already exposes for that device type
+   (Restore Time / Confirmed Time). Anything blank, ambiguous, unsupported,
+   or already correct is left untouched.
 
 2. Battery Cleanup — scans every Battery device in the report and
    normalizes Rated Voltage / Amps / Post Test / Tested Ah formatting,
    clears Pre Test, recalculates Min Ah, corrects Model Number, and sets
-   the Passed/Failed outcome from Inspection Date and Tested Ah vs Min
+   the Passed/Failed outcome from Install Date and Tested Ah vs Min
    Ah. When either side of an unambiguous Left/Right battery pair fails,
    both sides are failed together; Floor, Direction, Location, Description,
    and Area/Suite are read only to identify that pair. Anything missing,
@@ -75,10 +82,13 @@ checkpointed locally so closing the popup mid-run never loses progress.
 
 WHAT IT DOES NOT DO
 
-This extension only ever edits a device's Service field or Battery
-attribute fields, through BuildingReports' own Save button/save API. It
-has no ability to submit, certify, finalize, sign, distribute, or delete
-a report, building, or device record, and no such capability is planned.
+This extension only ever edits a small, fixed set of device fields —
+Service; Battery's outcome and attribute fields; and, for Communicator and
+Monitoring specifically, one existing device-attribute field each plus
+Monitoring's Comment/Solution — through BuildingReports' own Save
+button/save API. It has no ability to submit, certify, finalize, sign,
+distribute, or delete a report, building, or device record, and no such
+capability is planned.
 
 DATA HANDLING
 
@@ -104,12 +114,14 @@ narrow purpose. Paste this into the "Single purpose" field:
 
 ```
 This extension has one purpose: to normalize and correct specific,
-well-defined data-entry fields (the Service field, and Battery
-attribute fields) on BuildingReports.com's Device Editor page, using
-BuildingReports' own existing save mechanism. Clean Up Service Entries
-and Battery Cleanup are two facets of that same purpose (device
-record field normalization) rather than two unrelated features — both
-read the same report's device records, classify them with the same
+well-defined data-entry fields (the Service field, Battery's outcome
+and attribute fields, and a small matching set of fields for
+Communicator/Communication Line/Monitoring devices) on
+BuildingReports.com's Device Editor page, using BuildingReports' own
+existing save mechanism. Clean Up Service Entries and Battery Cleanup
+are two facets of that same purpose (device record field
+normalization) rather than two unrelated features — both read the
+same report's device records, classify them with the same
 safe/ambiguous/needs-review logic, and write back through the same
 paced save queue. It does not add unrelated functionality (no
 reporting/export/analytics/scheduling features, no navigation or
@@ -181,9 +193,10 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   site.
 - **User activity**: No analytics/telemetry of any kind.
 - **Website content**: Yes — device record fields (Service text, Battery
-  attribute values, and the Floor/Direction/Location/Description/Area-Suite
-  context used to identify battery pairs) from the BuildingReports report
-  you have open, processed locally as described above and in `PRIVACY.md`.
+  attribute values, Communicator/Monitoring's attribute field, and the
+  Floor/Direction/Location/Description/Area-Suite context used to identify
+  battery pairs) from the BuildingReports report you have open, processed
+  locally as described above and in `PRIVACY.md`.
 
 Certify: "I do not sell or transfer user data to third parties" and "I do
 not use or transfer user data for purposes unrelated to the item's single

@@ -121,12 +121,17 @@ but a genuinely older one is fully replaced by re-running the IIFE. Bump
 `ADAPTER_VERSION` whenever `adapter.js` changes. Confirmed live: with a
 stale adapter object left in the tab, reloading the extension and running
 Preview/Apply again picks up the new logic with no tab reload required.
-`ADAPTER_VERSION` is currently `4`; version 3 was introduced when the bulk
+`ADAPTER_VERSION` is currently `5`; version 3 was introduced when the bulk
 `applyFieldChanges(changes[])`/`applyServiceChanges`/`applyBatteryChanges`
 API was replaced with the single-record `applySingleFieldChange(scannumber,
 fields)`/`applySingleServiceChange`/`applySingleBatteryChange` API (see
-"Throttled write queue" below for why), and version 4 adds the read-only
-`areasuite` field needed for Left/Right Battery pairing.
+"Throttled write queue" below for why), version 4 adds the read-only
+`areasuite` field needed for Left/Right Battery pairing, and version 5 adds
+`installDate` (Battery Cleanup's expiration rule, replacing `inspectionDate`
+- see `docs/battery-cleanup-rules.md`) plus `COMMS_FIELD_MAP` and
+`applySingleServiceFieldsChange` for Clean Up Service Entries' new
+Communicator/Communication Line/Monitoring rules (see
+`docs/cleanup-rules.md`).
 
 ## Throttled write queue
 
@@ -232,6 +237,36 @@ rate-limit handling, and Resume/Cancel Remaining behavior as Apply, for
 free. Only the entries actually confirmed restored are dropped from
 storage; anything left pending (paused/cancelled) stays tracked for a
 later Resume or a plain retry of Undo.
+
+**"Undo Last Cleanup" undoes the report's entire accumulated Undo
+history, not just the run you just did (confirmed live, 2026-08-06,
+real incident):** the button label suggests "the last run," but
+`handleUndo` reads and processes every entry currently sitting in
+`brSidekick.undo.<inspectionId>` - if a *prior session's* Apply was never
+fully undone (e.g. its Undo was never run at all, or was interrupted and
+the popup closed), those old entries stay in `chrome.storage.local`
+indefinitely and get silently merged with the next Apply's entries the
+next time anyone uses this extension on that report, at any point in the
+future. A later click of "Undo" then reverts ALL of it in one go - both
+the run you meant to undo and the old leftover one, in whatever order the
+entries were stored, with no way to tell them apart from the button alone.
+Live testing hit exactly this on a real report: clicking Undo for a 3-item
+test run actually started processing 107 items (104 leftover from an
+earlier session's ~100-record Apply that was apparently never fully
+undone, silently merged with the 3 new ones), and 36 of the leftover
+items were reverted (from correct back to a stale pre-cleanup value)
+before it was caught and paused. Recovery was straightforward here (a
+fresh Preview+Apply on the live report re-detected and re-fixed exactly
+those 36 records), but the underlying risk is real: **before running Undo
+on a live report during testing, check `chrome.storage.local`'s
+`brSidekick.undo.<inspectionId>` / `brSidekick.batteryUndo.<inspectionId>`
+entry count first** (e.g. via `chrome.storage.local.get(null)` in the
+popup's own console) rather than assuming it only contains what you just
+applied. If it's larger than expected, treat every entry as suspect,
+verify (or re-derive via a fresh Preview) before trusting any of it, and
+discard the stored key entirely once the report's data is confirmed
+correct instead of leaving stale reversible-to-wrong entries sitting in
+storage for a future session to trip over.
 
 ## Battery Cleanup: a second, universal cleanup action
 

@@ -35,9 +35,11 @@ Matching (`src/cleanup/device-type-matcher.js` +
 ("Bell / Strobe" = "Bell/Strobe"), and parenthetical spacing ("Carbon
 Dioxide(CO2)" = "Carbon Dioxide (CO2)") - but is always an exact match
 after normalization, never substring/fuzzy. A device type not on this list
-(e.g. real examples found in testing: Tamper Switch, Waterflow Switch,
-Communicator, Communication Line, Monitoring) is left completely alone,
-regardless of what its Service field says.
+(e.g. real examples found in testing: Tamper Switch, Waterflow Switch) is
+left completely alone, regardless of what its Service field says.
+Communicator, Communication Line, and Monitoring were real-world examples
+of this too until their own rules were added - see "Communicator /
+Communication Line / Monitoring" below; they're no longer unsupported.
 
 ## Result parsing (`src/cleanup/service-parser.js`)
 
@@ -149,6 +151,87 @@ real report for: an Annunciator Passed case (Visual & Functional group), a
 Smoke Detector Passed case (Visual-only group, lowercase variant), a
 Control Panel Failed case (Visual & Functional group), and a Duct Detector
 custom "Bar Coded" entry (confirmed left untouched throughout).
+
+## Communicator / Communication Line / Monitoring (`src/cleanup/communications-parser.js`)
+
+These three device types have their own fixed Service-field shape,
+completely unlike "Visual [& Functional], Passed/Failed" - so they're
+intercepted in `classify.js` **before** `isSupportedDeviceType` and handled
+entirely by `communications-parser.js` instead of the device-type-matcher/
+service-parser/one-hitter pipeline above. This applies **identically under
+both Annual and Semi-Annual** - `communications-parser.js` doesn't take a
+`profile` argument at all, so neither profile's device list or prefix rules
+affect these three device types.
+
+Unlike every other supported device type (which only ever writes `service`),
+Communicator and Monitoring can also write a device-attribute field
+alongside Service - the same kind of BuildingReports quirk Battery Cleanup's
+`BATTERY_FIELD_MAP` already handles, confirmed live via `#deviceAttrGrid`'s
+column config (see `docs/buildingreports-dom-map.md` §7):
+
+| Device type | Attribute label | Real dataIndex | Adapter semantic name |
+|---|---|---|---|
+| Communicator | Restore Time | `seconds` | `restoreTime` |
+| Monitoring | Confirmed Time | `time` | `confirmedTime` |
+| Communication Line | *(none)* | - | - |
+
+A classification result for these three carries an `extraFieldChanges`
+array (empty for every other device type) alongside the usual `bucket`/
+`before`/`after` - `engine.js`'s `safeChanges` and `background.js`'s
+`handleApply` fold these into a single multi-field write
+(`applySingleServiceFieldsChange`) instead of the plain single-string
+`applySingleServiceChange` used everywhere else. Undo/Resume need no special
+handling - `write-queue.js` and the checkpoint never look inside
+`writeValue`/`priorValue` either way (see `docs/architecture.md`).
+
+### Communicator
+
+Always `Restored @ <time> <date>` (confirmed live: `Restored @ 11:29 AM
+5/1/25`). A time (`H:MM AM/PM`, tolerant of spacing/case/missing space) is
+extracted from anywhere in the raw Service text; if no date is found in
+Service, the date is filled in from Inspection Date (never invented from
+nothing) - formatted the same way (`M/D/YY`, no leading zeros, 2-digit
+year). No time anywhere, or no date anywhere including the Inspection Date
+fallback, -> `needsReview`. The normalized time is also mirrored into the
+Restore Time attribute field.
+
+### Communication Line
+
+Always `Yes, <time>`. Inspectors sometimes type `Restored @ <time>` (the
+Communicator's wording) or mangle the spacing/case in this column - the
+time is extracted the same tolerant way and the whole value is rebuilt into
+canonical form. No recognizable time -> `needsReview`. No device-attribute
+field for this device type (confirmed live - `#deviceAttrGrid` only shows
+Manufacture Date for Communication Line).
+
+### Monitoring
+
+Same baseline as Communication Line (`Yes, <time>`, with a mirrored
+Confirmed Time attribute), plus three extra rules:
+
+- **Service already exactly `N/A`** (case-insensitive) is a valid passing
+  value as-is - left untouched, only the Confirmed Time attribute is synced
+  to `N/A` if it isn't already.
+- **Passed unchecked WITH an explanatory Note** -> `Service = N/A`,
+  `Comment = Failed Test`, `Solution = See Notes/Recommendations`,
+  `Confirmed Time = N/A`. **Note is never touched** - it already explains
+  the failure. This takes priority even if Service already happens to say
+  `N/A`, since the unchecked+Note combination is the authoritative failure
+  signal.
+- **Passed unchecked with NO Note** -> `needsReview` - can't tell what
+  happened, never guessed.
+
+A passing `Yes, <time>` normalization also clears any stale Comment/
+Solution left over from an earlier failure (mirrors Battery Cleanup's
+Passed-clears-Comment/Solution convention), same as the N/A-passing case.
+
+Confirmed live (a real report, 2026-08-06, no customer/report identifiers
+recorded here): a full Preview/Apply/
+Undo cycle for one Communicator (messy text + stale attribute -> canonical +
+synced attribute), one Communication Line (wrong wording cleaned up), and
+one Monitoring record (messy passing text -> canonical, synced attribute,
+cleared stale Comment/Solution) - all verified against the live grid, then
+restored to their original values.
 
 ## Adding to Battery Cleanup instead
 

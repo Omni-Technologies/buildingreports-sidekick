@@ -42,9 +42,18 @@ causes the kind of mess `docs/buildingreports-dom-map.md` §5.1 describes.
     (a handful of hand-picked devices) before anything larger — see the
     rate-limit incident in `docs/buildingreports-dom-map.md` §5.1 for why
     this matters. Increase gradually, only after each stage is clean.
+    **Before clicking Undo, check what's actually in storage first** — see
+    `docs/architecture.md`'s Undo section for a real incident where a
+    prior session's un-cleared Undo history got silently merged with a new
+    run and reverted far more than intended. Check
+    `brSidekick.undo.<inspectionId>` / `brSidekick.batteryUndo.<inspectionId>`'s
+    entry count before assuming Undo only touches what you just applied.
 11. **Restore deliberately changed test records** to their exact original
     values before ending the session — a live test report is a real
-    customer report, not a sandbox.
+    customer report, not a sandbox. Also clear (`chrome.storage.local.remove`)
+    any stale/leftover Undo storage entries once the report's data is
+    confirmed correct, rather than leaving them for a future session to
+    trip over (see item 10 above).
 12. **Run the complete test suite** (`npm test`) — confirm the new tests
     pass AND every existing test still passes.
 13. **Update documentation and current state** — `docs/current-state.md`,

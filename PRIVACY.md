@@ -1,6 +1,6 @@
 # Privacy Policy — BuildingReports Sidekick
 
-**Last updated: 2026-08-04**
+**Last updated: 2026-08-06**
 
 BuildingReports Sidekick ("this extension") is an unofficial, independent
 productivity tool for people who already have authorized login access to
@@ -31,15 +31,25 @@ source code, which is auditable in full.
 The extension reads and writes exactly two kinds of information, both
 scoped to the BuildingReports Device Editor page you already have open:
 
-1. **Device Service field / Battery fields and pairing context** — read from the
+1. **Device Service field / Battery fields / Communicator, Communication
+   Line, and Monitoring fields, and pairing context** — read from the
    report's own device grid (via BuildingReports' own in-page ExtJS
    application state, not a network request the extension makes itself),
-   classified locally, and — only if you click **Apply** — the Service and
-   Battery outcome/attribute changes are written back through
-   BuildingReports' own Save button/save API. Battery Cleanup also reads
-   Floor, Direction, Location, Description, and Area/Suite solely to match
-   Left/Right battery pairs; those identifying fields are never written or
-   stored by the extension.
+   classified locally, and — only if you click **Apply** — the changes are
+   written back through BuildingReports' own Save button/save API. This
+   covers: the Service field (every supported device type); Battery's
+   outcome fields (Passed/Comment/Solution/Note) and attribute fields
+   (Rated Voltage/Amps/Pre Test/Post Test/Min Ah/Tested Ah/Model Number);
+   and, for Communicator and Monitoring specifically, one additional
+   device-attribute field each (Communicator's Restore Time, Monitoring's
+   Confirmed Time) plus Monitoring's Comment/Solution fields — the same
+   kind of field BuildingReports itself already exposes for that device
+   type in its own Device Editor, never a new or hidden field. Battery
+   Cleanup also reads Floor, Direction, Location, Description, and
+   Area/Suite solely to match Left/Right battery pairs, and Battery/
+   Communicator/Monitoring read Install Date/Inspection Date solely to
+   decide expiration/date formatting; those read-only fields are never
+   written or stored by the extension.
 2. **A local Undo/checkpoint history** — stored only in
    `chrome.storage.local` (a storage area private to your browser
    profile, never synced to any account or server by this extension):
@@ -64,9 +74,10 @@ BuildingReports' own Save button would send.
   code that runs is the exact code shipped in the extension package,
   reviewed as part of the Chrome Web Store submission.
 - It does not submit, certify, finalize, sign, distribute, or delete any
-  report, building, or device record. It only ever writes to a device's
-  Service field or Battery attribute fields, using BuildingReports' own
-  Save mechanism.
+  report, building, or device record. It only ever writes to the specific
+  device fields listed above (Service; Battery's outcome/attribute fields;
+  Communicator/Monitoring's own attribute field and, for Monitoring,
+  Comment/Solution), using BuildingReports' own Save mechanism.
 - It does not operate on any site other than `https://www.buildingreports.com`.
 - It does not collect diagnostic logs, screenshots, or usage statistics
   and send them anywhere.

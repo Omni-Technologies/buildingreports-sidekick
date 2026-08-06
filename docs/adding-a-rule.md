@@ -80,6 +80,26 @@ The parsing tolerance itself (how "visual and functional passed" etc. gets
 recognized) lives in `src/cleanup/service-parser.js` and applies to any
 profile - it is not Annual-specific.
 
+## Editing the Communicator / Communication Line / Monitoring rules
+
+These three device types have their own fixed Service-field shapes
+(`src/cleanup/communications-parser.js`), applied identically under both
+Annual and Semi-Annual - `classify.js` dispatches to
+`classifyCommsRecord(record)` before the ordinary supported-device-type
+check, and that function doesn't take `profile` at all. To change one of
+these three rules, edit `communications-parser.js` only - see
+`docs/cleanup-rules.md`'s "Communicator / Communication Line / Monitoring"
+section for the current rule reference. If the new behavior needs a new
+BuildingReports device-attribute field, add it to `COMMS_FIELD_MAP` in
+`src/site-adapters/buildingreports/adapter.js` the same way
+`BATTERY_FIELD_MAP` works (confirm the real dataIndex live via
+`#deviceAttrGrid`'s column config first - see
+`docs/buildingreports-dom-map.md` §7). A classification result's
+`extraFieldChanges` array is what carries any field beyond `service` through
+`engine.js`/`background.js` into a single multi-field write
+(`applySingleServiceFieldsChange`) - no other file needs to change for a
+rule tweak that stays within the existing field set.
+
 ## Adding to Battery Cleanup instead
 
 Battery Cleanup is the reference example of the "wholly new cleanup

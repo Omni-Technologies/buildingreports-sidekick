@@ -22,7 +22,7 @@
 // background.js's own per-tab applyInProgress guard is the primary defense
 // against overlapping Apply/Undo runs regardless.
 (function () {
-  const ADAPTER_VERSION = 4;
+  const ADAPTER_VERSION = 5;
   if (window.__brSidekickAdapter && window.__brSidekickAdapter.version >= ADAPTER_VERSION) {
     return;
   }
@@ -67,6 +67,20 @@
     postTest: 'posttestvoltage',
     minAh: 'velocity1door',
     testedAh: 'velocity2door',
+  };
+
+  // Clean Up Service Entries' Communicator/Communication Line/Monitoring
+  // special-case rules (see docs/cleanup-rules.md) mirror a normalized time
+  // into a device-attribute field alongside Service, the same quirk pattern
+  // as Battery's #deviceAttrGrid fields above. Confirmed live via
+  // #deviceAttrGrid's column config for a selected device of each type
+  // (see docs/buildingreports-dom-map.md §7): Communicator's "Restore Time"
+  // is dataIndex 'seconds', Monitoring's "Confirmed Time" is dataIndex
+  // 'time'. Communication Line has no such attribute field (only
+  // Manufacture Date) - confirmed live, so it only ever writes Service.
+  const COMMS_FIELD_MAP = {
+    restoreTime: 'seconds',
+    confirmedTime: 'time',
   };
 
   let busy = false;
@@ -115,27 +129,52 @@
     for (const semantic of Object.keys(BATTERY_FIELD_MAP)) {
       out[semantic] = rec.get(BATTERY_FIELD_MAP[semantic]);
     }
-    // Read-only: Battery Cleanup uses this to decide expiration but never
-    // writes it back, so it's intentionally not in BATTERY_FIELD_MAP (which
-    // toRawBatteryFields also uses as a write-time translation table).
+    // Harmless for every non-Communicator/Monitoring device (same quirk as
+    // BATTERY_FIELD_MAP above being read for every record regardless of
+    // device type) - only classify.js's Communicator/Monitoring path
+    // actually looks at these.
+    for (const semantic of Object.keys(COMMS_FIELD_MAP)) {
+      out[semantic] = rec.get(COMMS_FIELD_MAP[semantic]);
+    }
+    // Read-only: Battery Cleanup used this to decide expiration but never
+    // wrote it back, so it's intentionally not in BATTERY_FIELD_MAP (which
+    // toRawBatteryFields also uses as a write-time translation table). Kept
+    // available on every record for general use even though Battery
+    // Cleanup's expiration rule itself now uses installDate below - see
+    // docs/battery-cleanup-rules.md.
     out.inspectionDate = toLocalDateOnlyString(rec.get('inspectiondate'));
+    // Read-only, same treatment as inspectionDate: Battery Cleanup's 3-year
+    // expiration rule is keyed off Install Date (an ordinary #devicelistGrid
+    // column, dataIndex 'installdate'), not Inspection Date - confirmed live
+    // it's a genuinely per-device value (e.g. a battery replaced mid-inspection
+    // carries the replacement date), unlike Inspection Date which is
+    // effectively the same for every device in one inspection visit.
+    out.installDate = toLocalDateOnlyString(rec.get('installdate'));
     return out;
   }
 
-  // Translates a Battery Cleanup change's semantic field names into the
-  // real dataIndex names before they're written to the record. Most
-  // Battery fields are attribute-grid quirks that need BATTERY_FIELD_MAP's
-  // rename (see file header); but the pass/fail outcome fields
-  // (passed/service/comment/solution/note) are ordinary #devicelistGrid
-  // columns whose semantic name already IS their real dataIndex, so they
-  // fall through unchanged rather than needing their own trivial map entry.
-  function toRawBatteryFields(semanticFields) {
+  // Translates a semantic-field-named change into real dataIndex names
+  // before it's written to the record, via whichever field map applies.
+  // Fields not present in `fieldMap` (e.g. passed/service/comment/solution/
+  // note, whose semantic name already IS their real dataIndex) fall through
+  // unchanged rather than needing their own trivial map entry. Shared by
+  // Battery Cleanup (BATTERY_FIELD_MAP) and the Communicator/Monitoring
+  // attribute mirror (COMMS_FIELD_MAP).
+  function mapSemanticFields(fieldMap, semanticFields) {
     const raw = {};
     for (const [semantic, value] of Object.entries(semanticFields)) {
-      const rawKey = BATTERY_FIELD_MAP[semantic] || semantic;
+      const rawKey = fieldMap[semantic] || semantic;
       raw[rawKey] = value;
     }
     return raw;
+  }
+
+  function toRawBatteryFields(semanticFields) {
+    return mapSemanticFields(BATTERY_FIELD_MAP, semanticFields);
+  }
+
+  function toRawCommsFields(semanticFields) {
+    return mapSemanticFields(COMMS_FIELD_MAP, semanticFields);
   }
 
   // Returns report metadata when this frame hosts the Device Editor, or
@@ -295,6 +334,18 @@
     return applySingleFieldChange(scannumber, { service: newValue });
   }
 
+  // Clean Up Service Entries' Communicator/Communication Line/Monitoring
+  // special-case rules (see docs/cleanup-rules.md): unlike every other
+  // supported device type, these three can need more than just 'service'
+  // written in the same save (Communicator/Monitoring's Restore/Confirmed
+  // Time attribute field, and Monitoring's Comment/Solution on a failing
+  // outcome). `fields` uses semantic names (service, comment, solution,
+  // restoreTime, confirmedTime) - translated to real dataIndex names here,
+  // on exactly one record, same pattern as applySingleBatteryChange.
+  function applySingleServiceFieldsChange(scannumber, fields) {
+    return applySingleFieldChange(scannumber, toRawCommsFields(fields));
+  }
+
   // Battery Cleanup: `fields` uses the semantic names in BATTERY_FIELD_MAP
   // (ratedVoltage, amps, preTest, postTest, minAh, testedAh, modelNumber),
   // plus the pass/fail outcome fields (passed, service, comment, solution,
@@ -313,6 +364,7 @@
     detect,
     getAllRecords,
     applySingleServiceChange,
+    applySingleServiceFieldsChange,
     applySingleBatteryChange,
     isBusy,
   };

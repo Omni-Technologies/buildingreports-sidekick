@@ -292,9 +292,18 @@ considering it finished:
    small, hand-picked set of real devices — see
    `docs/new-rule-checklist.md` step 10).
 4. Verify Apply, save, and persistence against the real report.
-5. Test Undo whenever fields were actually changed.
+5. Test Undo whenever fields were actually changed — but check
+   `chrome.storage.local`'s `brSidekick.undo.<inspectionId>`/
+   `brSidekick.batteryUndo.<inspectionId>` entry count *before* clicking
+   Undo, not after. "Undo Last Cleanup" undoes the report's entire
+   accumulated Undo history, not just your run — a real incident (see
+   `docs/architecture.md`'s Undo section) found 104 leftover entries from
+   a prior, never-fully-undone session silently merged with a new 3-item
+   run, and Undo started reverting all 107 before it was caught.
 6. Restore deliberate test modifications on the live report when
-   appropriate — it's a real customer report, not a sandbox.
+   appropriate — it's a real customer report, not a sandbox. Also clear
+   any stale leftover Undo storage entries once the report is confirmed
+   correct, rather than leaving them for a future session to trip over.
 7. Confirm unrelated cleanup actions (the other of Service/Battery
    Cleanup, and the other Inspection Profile) still work.
 8. Update `docs/current-state.md`.

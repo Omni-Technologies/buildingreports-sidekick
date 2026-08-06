@@ -77,6 +77,16 @@ const BATTERY_KINDS = ['batteryApply', 'batteryUndo'];
 // while. Not a hard limit, just when to show the extra explanation.
 const LARGE_OPERATION_THRESHOLD = 10;
 
+// Labels for the extra fields Communicator/Communication Line/Monitoring
+// safeChanges can carry alongside Service (see communications-parser.js) -
+// shown in the Preview examples list under the Service before/after.
+const SERVICE_EXTRA_FIELD_LABELS = {
+  restoreTime: 'Restore Time',
+  confirmedTime: 'Confirmed Time',
+  comment: 'Comment',
+  solution: 'Solution',
+};
+
 const BUCKET_LABELS = {
   safeChange: 'Safe to change',
   alreadyCorrect: 'Already correct',
@@ -451,10 +461,15 @@ function renderSummary(summary) {
 
   examplesList.innerHTML = summary.examples.length
     ? summary.examples
-        .map(
-          (e) =>
-            `<div class="change-item"><strong>#${e.scannumber}</strong><br/><span class="before">${escapeHtml(e.before)}</span><br/><span class="after">${escapeHtml(e.after)}</span></div>`
-        )
+        .map((e) => {
+          const extra = (e.extraFieldChanges || [])
+            .map(
+              (fc) =>
+                `<div>${SERVICE_EXTRA_FIELD_LABELS[fc.field] || fc.field}: <span class="before">${escapeHtml(fc.before)}</span> → <span class="after">${escapeHtml(fc.after)}</span></div>`
+            )
+            .join('');
+          return `<div class="change-item"><strong>#${e.scannumber}</strong><br/><span class="before">${escapeHtml(e.before)}</span><br/><span class="after">${escapeHtml(e.after)}</span>${extra}</div>`;
+        })
         .join('')
     : '<div>No examples.</div>';
 }
@@ -492,7 +507,7 @@ function renderBatterySummary(summary) {
         .map(
           (e) =>
             `<div class="change-item"><strong>Battery #${e.scannumber}</strong><br/>` +
-            `Inspection Date: ${escapeHtml(e.inspectionDateDisplay || '(unknown)')}<br/>` +
+            `Install Date: ${escapeHtml(e.installDateDisplay || '(unknown)')}<br/>` +
             `Tested Ah: ${escapeHtml(e.testedAhDisplay || '(unknown)')}<br/>` +
             `Min Ah: ${escapeHtml(e.minAhDisplay || '(unknown)')}<br/>` +
             `Outcome: ${escapeHtml(e.outcomeLabel)}` +

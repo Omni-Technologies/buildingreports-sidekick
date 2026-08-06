@@ -6,12 +6,12 @@
 // for the full rule reference and "how to add the next rule" instructions.
 //
 // Records passed in here use semantic field names (ratedVoltage, amps,
-// preTest, postTest, minAh, testedAh, modelNumber, inspectionDate, passed,
+// preTest, postTest, minAh, testedAh, modelNumber, installDate, passed,
 // service, comment, solution, note) - never BuildingReports' internal
 // dataIndex names (voltage, pretestvoltage, velocity1door, ...).
 // That translation is owned entirely by
 // src/site-adapters/buildingreports/adapter.js's BATTERY_FIELD_MAP (or, for
-// inspectionDate's Date->string conversion, toLocalDateOnlyString there).
+// installDate's Date->string conversion, toLocalDateOnlyString there).
 
 import { isBlank, collapseWhitespace } from '../../shared/text-utils.js';
 import { normalizeDeviceTypeKey } from '../../shared/text-utils.js';
@@ -122,14 +122,14 @@ function parseDateOnly(raw) {
   return { state: 'valid', year, month, day };
 }
 
-// Date-only calendar comparison: expired when Inspection Date <= (today
+// Date-only calendar comparison: expired when Install Date <= (today
 // minus 3 calendar years). Both sides are constructed at local midnight via
 // the multi-arg Date constructor so the comparison is unaffected by
 // time-of-day or DST - only the calendar date matters.
 function isDateExpired(parsedDate, now) {
   const cutoff = new Date(now.getFullYear() - EXPIRATION_YEARS, now.getMonth(), now.getDate());
-  const inspectionDate = new Date(parsedDate.year, parsedDate.month - 1, parsedDate.day);
-  return inspectionDate.getTime() <= cutoff.getTime();
+  const installDate = new Date(parsedDate.year, parsedDate.month - 1, parsedDate.day);
+  return installDate.getTime() <= cutoff.getTime();
 }
 
 function formatDateDisplay(parsedDate) {
@@ -167,7 +167,7 @@ function asDisplayString(value) {
 
 // Classifies a single device record for Battery Cleanup. `record` must have
 // at least: scannumber, devicetype, modelNumber, ratedVoltage, amps,
-// preTest, postTest, minAh, testedAh, inspectionDate, passed, service,
+// preTest, postTest, minAh, testedAh, installDate, passed, service,
 // comment, solution, note (semantic names - see file header).
 // `now` (a Date) is the reference point for the expiration calculation -
 // pass a fixed value in tests, defaults to the current moment.
@@ -302,8 +302,12 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   // Rated Voltage or Amps missing/invalid: Model Number is left untouched -
   // already flagged via whichever of the two is the problem.
 
-  // --- Inspection Date / expiration: date-only, using the newly parsed value ---
-  const dateParsed = parseDateOnly(record.inspectionDate);
+  // --- Install Date / expiration: date-only, using the newly parsed value.
+  // Expiration is keyed off Install Date, not Inspection Date - a battery's
+  // 3-year service life is measured from when it was installed, and
+  // Inspection Date is effectively the same for every device in one visit
+  // (see docs/battery-cleanup-rules.md). ---
+  const dateParsed = parseDateOnly(record.installDate);
   const dateExpiredProven = dateParsed.state === 'valid' && isDateExpired(dateParsed, now);
 
   // --- Load test: Tested Ah vs the newly CALCULATED Min Ah (never the
@@ -388,7 +392,7 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   } else {
     // REVIEW: never touch Passed/Service/Comment/Solution/Note - only flag.
     const unknown = [];
-    if (dateParsed.state !== 'valid') unknown.push('Inspection Date');
+    if (dateParsed.state !== 'valid') unknown.push('Install Date');
     if (minAhValue == null) unknown.push('Min Ah (Amps is invalid/blank)');
     if (testedAhValue == null) unknown.push('Tested Ah');
     addFlag(
@@ -414,7 +418,7 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
       ? { sourceScannumber: options.pairedWithScannumber, outcome: forcedFailureOutcome }
       : null,
     outcomeDetail: {
-      inspectionDateDisplay: formatDateDisplay(dateParsed),
+      installDateDisplay: formatDateDisplay(dateParsed),
       testedAhDisplay: testedAhValue != null ? formatTwoDecimals(testedAhValue) : '',
       minAhDisplay: minAhValue != null ? formatTwoDecimals(minAhValue) : '',
     },

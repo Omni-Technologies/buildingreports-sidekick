@@ -6,6 +6,7 @@ import {
   parseVisualFunctionalResult,
   buildCanonicalService,
 } from './service-parser.js';
+import { classifyCommsRecord } from './communications-parser.js';
 
 // Classification buckets. Every record gets exactly one, mirroring the
 // Preview summary categories in the spec.
@@ -53,6 +54,14 @@ export function classifyRecord(record, profile) {
   if (!profile.enabled) {
     return { bucket: Bucket.NEEDS_REVIEW, before, after: null, reason: 'Profile is not configured' };
   }
+
+  // Communicator/Communication Line/Monitoring have their own fixed
+  // Service-field shape (not "Visual [& Functional], Passed/Failed") and
+  // aren't in either profile's supportedDeviceTypeKeys - handled entirely
+  // by communications-parser.js instead, identically under both profiles
+  // (it doesn't take `profile` at all). See docs/cleanup-rules.md.
+  const commsResult = classifyCommsRecord(record);
+  if (commsResult) return commsResult;
 
   if (!isSupportedDeviceType(deviceType, profile)) {
     return { bucket: Bucket.UNSUPPORTED_DEVICE_TYPE, before, after: null, reason: `Unsupported device type "${deviceType}"` };

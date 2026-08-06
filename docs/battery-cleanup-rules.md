@@ -105,26 +105,37 @@ relevant field's own review flag already covers it).
 In addition to the attribute rules above, every Battery gets a record-level
 Pass/Fail/Review decision (`classifyBatteryRecord`'s `outcome`, one of
 `BatteryOutcome.PASSED` / `DATE_EXPIRED` / `FAILED_LOAD_TEST` /
-`DATE_EXPIRED_AND_FAILED_LOAD_TEST` / `REVIEW`), computed from the Inspection
+`DATE_EXPIRED_AND_FAILED_LOAD_TEST` / `REVIEW`), computed from the Install
 Date and the *newly calculated* Min Ah vs. Tested Ah - never from stale
 stored values. This reuses ordinary `#devicelistGrid` columns, not the
 attribute-grid quirks above:
 
 | Semantic name (pure logic) | Preview label | BuildingReports dataIndex | Type |
 |---|---|---|---|
-| `inspectionDate` | Inspection Date | `inspectiondate` | Ext `date` field (real `Date`, per-device) |
+| `installDate` | Install Date | `installdate` | Ext `date` field (real `Date`, per-device) |
 | `passed` | Passed (checkbox) | `passed` | boolean |
 | `service` | Service | `service` | string |
 | `comment` | Comment | `comment` | string |
 | `solution` | Solution | `solution` | string |
 | `note` | Note | `note` | string |
 
-`inspectionDate` is read-only for Battery Cleanup - it's used to decide
+`installDate` is read-only for Battery Cleanup - it's used to decide
 expiration but never written back, so it's not in `BATTERY_FIELD_MAP`.
 `passed`/`service`/`comment`/`solution`/`note` already share their real
 dataIndex name 1:1, so the adapter's `toRawBatteryFields` falls back to the
 semantic name itself when there's no `BATTERY_FIELD_MAP` entry, rather than
 needing five trivial identity map entries.
+
+**Changed 2026-08-06:** expiration was originally keyed off Inspection Date
+(the current inspection visit's date, effectively the same for every device
+in one report) - it now uses Install Date instead (a genuinely per-device
+value, e.g. a battery replaced mid-inspection carries the replacement
+date), which is what actually determines a 3-year battery service life.
+This is a full replacement, not an additional check - Inspection Date is no
+longer read for this decision at all. `adapter.js`'s `inspectionDate` field
+is still populated on every record (used by the new Communicator/Monitoring
+Service Cleanup rules - see `docs/cleanup-rules.md`), it's just no longer
+Battery Cleanup's input.
 
 ### Left/Right battery pairs
 
@@ -173,19 +184,19 @@ Batteries were failed due to their pair and identifies the source Battery.
 ### Expiration (date-only, local calendar)
 
 ```
-Expired when Inspection Date <= Current Date minus 3 calendar years
+Expired when Install Date <= Current Date minus 3 calendar years
 ```
 
 `adapter.js`'s `toLocalDateOnlyString` converts the record's real `Date`
-(`rec.get('inspectiondate')`, stored as a UTC instant, e.g.
-`"2025-05-01T11:56:25.000Z"`) into a plain `"YYYY-MM-DD"` string using
+(`rec.get('installdate')`, stored as a UTC instant, e.g.
+`"2011-06-01T05:00:00.000Z"`) into a plain `"YYYY-MM-DD"` string using
 **local** `getFullYear`/`getMonth`/`getDate` (never `toISOString`/UTC
 components), because the local calendar day can differ from the UTC one
 near midnight. `rules/battery-cleanup.js`'s `parseDateOnly` then re-parses
 that string with the multi-arg `Date` constructor (`new Date(y, m-1, d)`),
 which builds the date from local wall-clock components directly - the
 "parse it without timezone errors" path, since `new Date("YYYY-MM-DD")`
-would parse as UTC midnight instead. The 3-year cutoff and the inspection
+would parse as UTC midnight instead. The 3-year cutoff and the install
 date are both compared as local-midnight `Date`s, so only the calendar date
 matters, never time-of-day. `classifyBatteryRecord(record, now)` takes `now`
 as an explicit (optional, defaults to `new Date()`) parameter so tests can
@@ -221,7 +232,7 @@ failure, and the current run is a fresh, independent determination.
 
 ### Passing
 
-A Battery passes only when the Inspection Date is valid and not expired,
+A Battery passes only when the Install Date is valid and not expired,
 Tested Ah and Min Ah are both known valid numbers, and Tested Ah >= Min Ah.
 Sets: Passed checkbox checked, Service = `Visual & Functional, Passed`,
 Comment and Solution cleared. **Note is never touched on a pass** - existing
@@ -236,7 +247,7 @@ Deterministic, never assumes missing means Passed:
 - A proven expiration or a proven load-test failure always wins, even if
   the *other* input is missing/invalid (e.g. a proven expired date fails
   the Battery even with a blank Tested Ah).
-- If neither failure is proven, but the Inspection Date, Min Ah (via Amps),
+- If neither failure is proven, but the Install Date, Min Ah (via Amps),
   or Tested Ah is missing/invalid, the outcome is `REVIEW`: Passed/Service/
   Comment/Solution/Note are left completely untouched, and a `reviewFlags`
   entry with `field: 'outcome'`, bucket `OUTCOME_REQUIRES_REVIEW`, lists

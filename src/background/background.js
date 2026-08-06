@@ -88,13 +88,26 @@ async function getAllRecords(tabId, frameId) {
 // rate-limits bursts of concurrent deviceWrite requests, so every write in
 // this extension now goes through write-queue.js's runQueue at concurrency 1
 // instead of ever setting more than one record dirty before clicking Save.
+// item.writeValue is a plain string (just the 'service' field) for every
+// ordinary supported device type - the original, unchanged path. It's an
+// object (e.g. { service, restoreTime }) only for the Communicator/
+// Communication Line/Monitoring special-case rules in classify.js/
+// communications-parser.js, which can need an extra device-attribute field
+// (or Comment/Solution) written in the same save - see
+// docs/cleanup-rules.md. write-queue.js/the checkpoint never look inside
+// writeValue/priorValue either way (see docs/architecture.md), so Undo and
+// Resume automatically handle both shapes without any changes there.
 async function saveServiceItem(tabId, frameId, item) {
   await ensureAdapterInjected(tabId, frameId);
+  const isMultiField = item.writeValue !== null && typeof item.writeValue === 'object';
   const results = await chrome.scripting.executeScript({
     target: { tabId, frameIds: [frameId] },
     world: 'MAIN',
-    func: (sn, newValue) => window.__brSidekickAdapter.applySingleServiceChange(sn, newValue),
-    args: [item.scannumber, item.writeValue],
+    func: (sn, value, multiField) =>
+      multiField
+        ? window.__brSidekickAdapter.applySingleServiceFieldsChange(sn, value)
+        : window.__brSidekickAdapter.applySingleServiceChange(sn, value),
+    args: [item.scannumber, item.writeValue, isMultiField],
   });
   return results[0] && results[0].result;
 }
@@ -269,11 +282,24 @@ async function handleApply(tabId, profileKey) {
     const summary = runCleanup(records, profile);
 
     const recordsBySn = new Map(records.map((r) => [String(r.scannumber), r]));
-    const items = summary.safeChanges.map((c) => ({
-      scannumber: c.scannumber,
-      writeValue: c.after,
-      priorValue: recordsBySn.get(String(c.scannumber)).service,
-    }));
+    // Communicator/Communication Line/Monitoring safeChanges can carry
+    // extraFieldChanges (a device-attribute field and/or Comment/Solution -
+    // see communications-parser.js) alongside the Service text; every other
+    // device type's safeChange never has this property, so writeValue stays
+    // a plain string exactly as before for them.
+    const items = summary.safeChanges.map((c) => {
+      const priorRecord = recordsBySn.get(String(c.scannumber));
+      if (c.extraFieldChanges && c.extraFieldChanges.length > 0) {
+        const writeValue = { service: c.after };
+        const priorValue = { service: priorRecord.service };
+        for (const fc of c.extraFieldChanges) {
+          writeValue[fc.field] = fc.after;
+          priorValue[fc.field] = fc.before;
+        }
+        return { scannumber: c.scannumber, writeValue, priorValue };
+      }
+      return { scannumber: c.scannumber, writeValue: c.after, priorValue: priorRecord.service };
+    });
 
     if (items.length === 0) {
       return { ok: true, summary, applied: [], failed: [], undoAvailable: false, progress: null };

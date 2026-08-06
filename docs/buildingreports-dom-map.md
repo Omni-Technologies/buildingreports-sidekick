@@ -53,6 +53,15 @@ const store = grid.getStore();
   `location`, `description`, `areasuite`, `passed` (bool), `scanned` (bool),
   `service`, `comment`, `solution`, `note`, `controlpanel`, `zone`,
   `address`, `installdate`, plus device-attribute-specific fields.
+  `installdate` is Battery Cleanup's expiration input as of 2026-08-06
+  (`installDate` semantic name, read-only, same `toLocalDateOnlyString`
+  treatment as `inspectiondate`) - confirmed live it's a genuinely
+  per-device value (e.g. a replaced battery carries the replacement date),
+  unlike `inspectiondate` which is effectively the same for every device in
+  one inspection visit. `inspectiondate` itself is still read on every
+  record (semantic name `inspectionDate`) - used by Clean Up Service
+  Entries' Communicator rule as a date fallback, see
+  `docs/cleanup-rules.md`.
 - Every record field can be read with `record.get('<dataIndex>')`.
 - Battery Cleanup reads `floor`, `direction`, `location`, `description`,
   and `areasuite` as read-only context for conservative Left/Right pair
@@ -337,6 +346,16 @@ the same generic attribute-grid columns labeled "Air Flow Value" on Damper
 Control devices, repurposed and relabeled per device type. There is no
 naming convention to rely on here; each device type's mapping has to be
 confirmed live the same way.
+
+Confirmed live (2026-08-06, same technique, `COMMS_FIELD_MAP` in
+`adapter.js`) for Clean Up Service Entries' Communicator/Communication
+Line/Monitoring rules (see `docs/cleanup-rules.md`): Communicator's
+`#deviceAttrGrid` has `manufacturedate`/`type`/`seconds` ("Restore Time");
+Monitoring's has `manufacturedate`/`type`/`time` ("Confirmed Time")/
+`sensitivity` ("Confirmed With" - not used by this extension); Communication
+Line's has only `manufacturedate` (Manufacture Date) - no attribute field
+at all for that device type, confirmed by direct inspection of a real
+Communication Line record.
 
 A useful shortcut for finding the underlying dataIndex behind any visible
 attribute-panel label without selecting a device first: every field also

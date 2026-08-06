@@ -49,7 +49,7 @@ const OUTCOME_LABELS = {
 // can contribute to several field-change counts at once, so callers should
 // read both `totalDevicesAffected` and `totalFieldsAffected`.
 //
-// `now` (a Date) is the reference point for the Inspection Date expiration
+// `now` (a Date) is the reference point for the Install Date expiration
 // calculation - defaults to the current moment; pass a fixed value in
 // tests. Preview and Apply each call this fresh (see background.js), so
 // Apply always re-evaluates expiration against the moment it actually runs.
@@ -227,7 +227,7 @@ function pickExamples(batteryResults, limit = 8) {
   return examples;
 }
 
-// Compact "Battery <n> / Inspection Date / Tested Ah / Min Ah / Outcome"
+// Compact "Battery <n> / Install Date / Tested Ah / Min Ah / Outcome"
 // style entries for Preview - failing and review outcomes are surfaced
 // first (most actionable), passing batteries fill any remaining room.
 const OUTCOME_EXAMPLE_PRIORITY = [
@@ -249,7 +249,7 @@ function pickOutcomeExamples(batteryResults, limit = 20) {
         outcome: r.outcome,
         outcomeLabel: OUTCOME_LABELS[r.outcome] || r.outcome,
         pairedWithScannumber: r.pairedFailure ? r.pairedFailure.sourceScannumber : null,
-        inspectionDateDisplay: r.outcomeDetail.inspectionDateDisplay,
+        installDateDisplay: r.outcomeDetail.installDateDisplay,
         testedAhDisplay: r.outcomeDetail.testedAhDisplay,
         minAhDisplay: r.outcomeDetail.minAhDisplay,
       });

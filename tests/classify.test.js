@@ -175,3 +175,32 @@ test('a disabled profile flags everything for review instead of applying rules',
   assert.equal(r.bucket, Bucket.NEEDS_REVIEW);
   assert.equal(r.after, null);
 });
+
+// Communicator/Communication Line/Monitoring (full rule reference:
+// docs/cleanup-rules.md, logic in communications-parser.js) aren't in
+// either profile's supportedDeviceTypeKeys and are intercepted before that
+// check - confirm both profiles produce the identical result, since
+// communications-parser.js doesn't take `profile` as an input at all.
+test('Communicator/Communication Line/Monitoring are classified identically under Annual and Semi-Annual', () => {
+  const cases = [
+    { devicetype: 'Communicator', service: 'Restored @ 11:29 AM 5/1/25', restoreTime: '11:29 AM' },
+    { devicetype: 'Communication Line', service: 'Yes, 11:02 AM' },
+    { devicetype: 'Monitoring', service: 'Yes, 6:11 AM', passed: true, confirmedTime: '6:11 AM' },
+  ];
+  for (const overrides of cases) {
+    const annualResult = classifyRecord(makeRecord(overrides), annualProfile);
+    const semiAnnualResult = classifyRecord(makeRecord(overrides), semiAnnualProfile);
+    assert.equal(annualResult.bucket, Bucket.ALREADY_CORRECT, `${overrides.devicetype} under Annual`);
+    assert.equal(semiAnnualResult.bucket, Bucket.ALREADY_CORRECT, `${overrides.devicetype} under Semi-Annual`);
+  }
+});
+
+test('a Communicator needing normalization is not treated as an unsupported device type', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Communicator', service: 'restored @11:29am 5/1/25' }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Restored @ 11:29 AM 5/1/25');
+  assert.ok(r.extraFieldChanges);
+});

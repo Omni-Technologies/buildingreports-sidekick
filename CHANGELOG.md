@@ -18,7 +18,17 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
-- (add notes here before running a release)
+- **Added**: Clean Up Service Entries now normalizes Communicator
+  (`Restored @ <time> <date>`, mirroring the time into a Restore Time
+  field), Communication Line (`Yes, <time>`), and Monitoring (`Yes, <time>`,
+  plus an `N/A`-is-valid rule and a Passed-unchecked-with-a-Note failing
+  rule that sets `N/A`/`Failed Test`/`See Notes/Recommendations` and mirrors
+  a Confirmed Time field) - identically under both Annual and Semi-Annual.
+- **Changed**: Battery Cleanup's 3-year expiration now uses **Install
+  Date** instead of Inspection Date - a battery's service life is measured
+  from when it was installed, not from the date of the current inspection
+  visit (which is effectively the same for every device in one report).
+  This is a full replacement, not an additional check.
 
 ## [0.1.3] - 2026-08-04
 - **Fixed**: Battery Cleanup's Left/Right pair matching no longer assumes

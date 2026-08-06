@@ -55,7 +55,16 @@ function pickExamples(safeChanges, limit = 8) {
     const shapeKey = `${change.before.toLowerCase().replace(/[a-z]/gi, 'x')}`;
     if (seen.has(shapeKey) && examples.length > 2) continue;
     seen.add(shapeKey);
-    examples.push({ scannumber: change.scannumber, before: change.before, after: change.after });
+    examples.push({
+      scannumber: change.scannumber,
+      before: change.before,
+      after: change.after,
+      // Only Communicator/Communication Line/Monitoring safeChanges ever
+      // carry this (a device-attribute field and/or Comment/Solution
+      // alongside Service - see communications-parser.js); every other
+      // device type's safeChange has none, so this is just [].
+      extraFieldChanges: change.extraFieldChanges || [],
+    });
     if (examples.length >= limit) break;
   }
   return examples;

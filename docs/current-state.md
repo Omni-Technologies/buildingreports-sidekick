@@ -8,10 +8,18 @@ changes — it's meant to save a future session from re-deriving all of this.
 
 - **Clean Up Service Entries** — Annual profile (enabled) and Semi-Annual
   profile (enabled). Preview / Apply / Undo, both routed through the shared
-  paced write queue. Full rule reference: `docs/cleanup-rules.md`.
+  paced write queue. Full rule reference: `docs/cleanup-rules.md`. Includes
+  Communicator/Communication Line/Monitoring (`src/cleanup/
+  communications-parser.js`, added 2026-08-06) — their own fixed
+  Service-field shapes, applied identically under both profiles, with
+  Communicator/Monitoring also writing a device-attribute field alongside
+  Service (a new capability for this action — every other supported device
+  type only ever writes Service).
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
   Undo, independent Undo history from Service Cleanup, same write queue.
-  Full rule reference: `docs/battery-cleanup-rules.md`.
+  Full rule reference: `docs/battery-cleanup-rules.md`. 3-year expiration is
+  keyed off **Install Date** (changed 2026-08-06, replacing Inspection
+  Date entirely — see that doc's "Pass/Fail outcome" section).
 - **Shared paced write queue** (`src/cleanup/write-queue.js`) — concurrency
   1, checkpointed to `chrome.storage.local`, rate-limit backoff + bounded
   retries + manual Resume, Pause / Cancel Remaining. Used by all four write
@@ -23,12 +31,12 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**132 tests, 0 failures** across `tests/*.test.js`
+**160 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
-`engine.test.js`, `semi-annual.test.js`, `write-queue.test.js`). Synthetic
-fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
-this count drifts from what's actually reported by `npm test`, trust the
-live run, not this file.
+`communications-cleanup.test.js`, `engine.test.js`, `semi-annual.test.js`,
+`write-queue.test.js`). Synthetic fixtures only (`tests/fixtures.js`), zero
+mocking, zero DOM dependency. If this count drifts from what's actually
+reported by `npm test`, trust the live run, not this file.
 
 ## Known BuildingReports internals
 
@@ -63,10 +71,14 @@ live run, not this file.
 
 ## Adapter version
 
-`ADAPTER_VERSION = 4` (`src/site-adapters/buildingreports/adapter.js`) —
+`ADAPTER_VERSION = 5` (`src/site-adapters/buildingreports/adapter.js`) —
 single-record save API (`applySingleServiceChange`/
-`applySingleBatteryChange`). Bump this constant whenever `adapter.js`
-changes, per the versioned-re-injection scheme in `docs/architecture.md`.
+`applySingleServiceFieldsChange`/`applySingleBatteryChange`). Bump this
+constant whenever `adapter.js` changes, per the versioned-re-injection
+scheme in `docs/architecture.md`. Version 5 (2026-08-06) added
+`installDate` (Battery Cleanup's new expiration input) and
+`COMMS_FIELD_MAP`/`applySingleServiceFieldsChange` (Communicator/
+Communication Line/Monitoring's Service Cleanup rules).
 
 ## Known limitations / unresolved items
 
@@ -99,6 +111,14 @@ changes, per the versioned-re-injection scheme in `docs/architecture.md`.
   (`floor`, `direction`, `location`, `description`, `areasuite`) for the
   marker rather than hardcoding one or two (see
   `docs/battery-cleanup-rules.md`).
+- **"Undo Last Cleanup" undoes the report's ENTIRE accumulated Undo
+  history, not just the run you just did** - a real incident (2026-08-06)
+  found a prior session's ~100-record Apply had never been fully undone,
+  its leftover entries silently merged with a new 3-item run, and clicking
+  Undo started reverting all 107 before it was caught and paused. See
+  `docs/architecture.md`'s Undo section for the full account and the
+  operational fix (check `chrome.storage.local`'s entry count before
+  clicking Undo during live testing).
 
 ## Most recent successful live verification
 
@@ -117,9 +137,39 @@ anywhere in this repo):
 - Battery Cleanup Left/Right pairing (2026-08-04): see the "Known
   limitations" note above for the full account, including the real-world
   Description-column bug this testing found and fixed.
+- **Battery Cleanup Install Date rule (2026-08-06, a real report - no
+  customer/report identifiers recorded here):** Preview confirmed 2 real
+  Batteries with a >3-year-old Install
+  Date correctly flipped from Passed to Failed - Date Expired purely from
+  the new date source (their Inspection Date was recent, so they'd have
+  stayed Passed under the old rule); 2 other real Batteries with a genuine
+  0.00 Tested Ah correctly failed on load test independent of the date
+  change. Full Apply/verify/Undo/verify cycle confirmed correct on all 4,
+  including exact restoration of a real pre-existing Note history string on
+  2 of them.
+- **Communicator/Communication Line/Monitoring rules (2026-08-06, same
+  report):** Preview correctly reclassified all 9 real Communicator/
+  Communication Line/Monitoring devices from "unrecognized device type" to
+  "already correct" (their existing values were already canonical - zero
+  unwanted changes). A hand-dirtied, hand-picked test of one of each device
+  type (messy Service text + stale attribute values) confirmed the full
+  Preview → Apply → verify → Undo → verify cycle, including the new
+  multi-field write (Service + Restore Time for Communicator; Service +
+  Confirmed Time + Comment + Solution for Monitoring) landing in a single
+  save per device.
+- **Real incident and recovery (2026-08-06):** see the "Known limitations"
+  note above on Undo's accumulated-history behavior - a partial accidental
+  Undo reverted 36 unrelated, already-correct records from a prior
+  session's leftover history; recovered via a fresh Preview+Apply (which
+  re-detected and re-fixed exactly those 36), then the stale Undo storage
+  entry was discarded. Final Preview after recovery showed the report
+  back in the exact same "0 safe changes, 217 already correct" state as
+  right after the intended comms-rule test, and Battery Cleanup's Preview
+  matched the real underlying data exactly (4 affected, 2 already correct).
 - The report was left in its original, fully-consistent state after
-  testing (confirmed via a final Preview showing zero safe changes across
-  the whole report).
+  testing (confirmed via a final Preview showing zero safe changes for
+  Service Cleanup, and Battery Cleanup matching the report's real
+  underlying data).
 - The rate-limit incident that led to building the write queue (see
   dom-map §5.1) happened, was recovered from, and the fix was verified live
   in the same session - see `docs/architecture.md` and
@@ -131,6 +181,9 @@ anywhere in this repo):
   profile file.
 - `src/cleanup/classify.js` / `device-type-matcher.js` — prefix-selection
   logic shared by all Service Cleanup profiles.
+- `src/cleanup/communications-parser.js` — Communicator/Communication
+  Line/Monitoring rule changes; profile-agnostic, doesn't touch
+  `classify.js` beyond its one dispatch call.
 - `src/cleanup/rules/battery-cleanup.js` / `battery-engine.js` — a new
   Battery field rule.
 - `src/site-adapters/buildingreports/adapter.js` — only if a new field
