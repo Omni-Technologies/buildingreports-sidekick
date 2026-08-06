@@ -23,8 +23,8 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.3 (`releases/buildingreports-sidekick-v0.1.3.zip`) |
-| Latest version submitted for review | 0.1.1 (initial submission) — 0.1.3 not yet submitted |
+| Latest locally generated version | 0.1.4 (`releases/buildingreports-sidekick-v0.1.4.zip`) |
+| Latest version submitted for review | 0.1.1 (initial submission) — unclear whether 0.1.3 was submitted since (user mentioned possibly submitting *something* the day before this was written, 2026-08-06); not yet confirmed which version, so not recorded as submitted here. Confirm and update this row once known. |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last release
@@ -45,16 +45,16 @@ explicitly says so.
   Install Date, and (same day, second revision) the new Annual Heat
   Detector Restorable field and Third-Party Serviced Devices
   Comment/Solution/Note fields.
-- **Unreleased notes**: see `CHANGELOG.md`'s `## [Unreleased]` section
-  (Communicator/Communication Line/Monitoring rules; Battery Cleanup
-  Install Date expiration; Annual Heat Detector Restorable rule;
-  Third-Party Serviced Devices rule) - not yet built into a release ZIP.
-- **0.1.3 release notes**: see `CHANGELOG.md`'s `## [0.1.3]` and
-  `## [0.1.2]` sections (Battery Cleanup Left/Right pair failure
-  propagation, generalized to scan all five identifying columns for the
-  marker rather than assuming Direction/Description). 0.1.2 was built
-  locally but never submitted, so 0.1.3 supersedes it - only 0.1.3 should
-  be uploaded.
+- **Unreleased notes**: empty — everything below was just built into
+  0.1.4.
+- **0.1.4 release notes**: see `CHANGELOG.md`'s `## [0.1.4]` section
+  (Annual Heat Detector Restorable rule; Third-Party Serviced Devices
+  rule; Communicator/Communication Line/Monitoring rules; Battery Cleanup
+  Install Date expiration — all built up since 0.1.3 and released
+  together). 0.1.3 was built locally but its submission status is unclear
+  (see the version-tracking table above) - **0.1.4 supersedes it either
+  way, so 0.1.4 is what should be uploaded next**, regardless of whether
+  0.1.3 was submitted.
 
 ## Reminder
 

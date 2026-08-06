@@ -18,6 +18,9 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
+- (add notes here before running a release)
+
+## [0.1.4] - 2026-08-06
 - **Added**: Under the Annual profile, a Heat Detector already showing
   "Visual, Passed/Failed" (no "& Functional") is preserved as a deliberate
   restorable/non-restorable signal instead of being upgraded to "Visual &
