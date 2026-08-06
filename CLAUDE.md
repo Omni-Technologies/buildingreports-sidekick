@@ -102,6 +102,22 @@ detail in `docs/buildingreports-dom-map.md`.
   Apply, reverses them, and runs the reverse list through the *same* write
   queue — same pacing, same verification.
 
+### The manual-fix pattern (`suggestedFix` / `manualServiceFix`) — last resort, not a default
+
+`third-party-service-parser.js`'s `needsReview` results can carry a
+`suggestedFix` string, which the popup renders as an editable text box +
+"Apply This Fix" button (`manualServiceFix` message in `background.js`,
+reusing the `serviceApply` checkpoint kind and Undo history — see
+`docs/cleanup-rules.md`'s "Manual fix for records that don't fit"). As
+rules get more complex, expect to lean on this pattern more for cases that
+genuinely don't have one deterministic right answer (e.g. an abbreviation
+that still doesn't fit any character limit). **Prefer a deterministic
+rule whenever one exists — reach for a manual-fix escape hatch only when
+the tool genuinely cannot decide safely, not as a shortcut around writing
+the actual rule.** The goal is always a tool that "just works" on Preview
+→ Apply with zero human intervention for the common case; manual fixes
+are for the genuine edge cases, not the default path.
+
 ## Annual vs Semi-Annual Service Cleanup
 
 Both profiles share the same supported-device list, preserve phrases, and
