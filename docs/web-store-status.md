@@ -23,8 +23,8 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.4 (`releases/buildingreports-sidekick-v0.1.4.zip`) |
-| Latest version submitted for review | 0.1.1 (initial submission) — unclear whether 0.1.3 was submitted since (user mentioned possibly submitting *something* the day before this was written, 2026-08-06); not yet confirmed which version, so not recorded as submitted here. Confirm and update this row once known. |
+| Latest locally generated version | 0.1.4 (`releases/buildingreports-sidekick-v0.1.4.zip`) — not yet submitted |
+| Latest version submitted for review | 0.1.3 — user confirmed submitted 2026-08-05, still pending review as of 2026-08-06 (not yet approved/rejected). Supersedes the earlier 0.1.1 initial submission. |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last release
@@ -51,10 +51,12 @@ explicitly says so.
   (Annual Heat Detector Restorable rule; Third-Party Serviced Devices
   rule; Communicator/Communication Line/Monitoring rules; Battery Cleanup
   Install Date expiration — all built up since 0.1.3 and released
-  together). 0.1.3 was built locally but its submission status is unclear
-  (see the version-tracking table above) - **0.1.4 supersedes it either
-  way, so 0.1.4 is what should be uploaded next**, regardless of whether
-  0.1.3 was submitted.
+  together). **0.1.3 is currently pending review** (submitted
+  2026-08-05, see the version-tracking table above) - 0.1.4 supersedes it
+  and should be uploaded/submitted next regardless of whether 0.1.3's
+  review finishes first (see `RELEASING.md`/the assistant's guidance on
+  submitting a newer version while an earlier one is still pending -
+  it replaces the pending review rather than stacking).
 
 ## Reminder
 
