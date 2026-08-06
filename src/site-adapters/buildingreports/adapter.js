@@ -22,7 +22,7 @@
 // background.js's own per-tab applyInProgress guard is the primary defense
 // against overlapping Apply/Undo runs regardless.
 (function () {
-  const ADAPTER_VERSION = 5;
+  const ADAPTER_VERSION = 6;
   if (window.__brSidekickAdapter && window.__brSidekickAdapter.version >= ADAPTER_VERSION) {
     return;
   }
@@ -83,6 +83,24 @@
     confirmedTime: 'time',
   };
 
+  // Clean Up Service Entries' Annual Heat Detector rule (see
+  // docs/cleanup-rules.md): syncs the "Restorable" device-attribute
+  // checkbox alongside Service. Confirmed live via #deviceAttrGrid's
+  // column config for a selected Heat Detector - "Restorable" is a plain
+  // boolean checkcolumn, dataIndex 'simulated' (a generic attribute-grid
+  // column reused/relabeled per device type, same quirk pattern as
+  // Battery's velocity1door/velocity2door - see docs/buildingreports-dom-map.md
+  // §7).
+  const HEAT_DETECTOR_FIELD_MAP = {
+    restorable: 'simulated',
+  };
+
+  // Combined translation table for every extra field a Service Cleanup
+  // safeChange can carry alongside 'service' (Communicator/Monitoring's
+  // attribute field, Comment/Solution, or a Heat Detector's Restorable
+  // checkbox) - see applySingleServiceFieldsChange below.
+  const SERVICE_EXTRA_FIELD_MAP = { ...COMMS_FIELD_MAP, ...HEAT_DETECTOR_FIELD_MAP };
+
   let busy = false;
 
   function getExt() {
@@ -129,12 +147,12 @@
     for (const semantic of Object.keys(BATTERY_FIELD_MAP)) {
       out[semantic] = rec.get(BATTERY_FIELD_MAP[semantic]);
     }
-    // Harmless for every non-Communicator/Monitoring device (same quirk as
+    // Harmless for every device type that doesn't use these (same quirk as
     // BATTERY_FIELD_MAP above being read for every record regardless of
-    // device type) - only classify.js's Communicator/Monitoring path
-    // actually looks at these.
-    for (const semantic of Object.keys(COMMS_FIELD_MAP)) {
-      out[semantic] = rec.get(COMMS_FIELD_MAP[semantic]);
+    // device type) - only classify.js's Communicator/Monitoring/Heat
+    // Detector paths actually look at their respective fields.
+    for (const semantic of Object.keys(SERVICE_EXTRA_FIELD_MAP)) {
+      out[semantic] = rec.get(SERVICE_EXTRA_FIELD_MAP[semantic]);
     }
     // Read-only: Battery Cleanup used this to decide expiration but never
     // wrote it back, so it's intentionally not in BATTERY_FIELD_MAP (which
@@ -173,8 +191,8 @@
     return mapSemanticFields(BATTERY_FIELD_MAP, semanticFields);
   }
 
-  function toRawCommsFields(semanticFields) {
-    return mapSemanticFields(COMMS_FIELD_MAP, semanticFields);
+  function toRawServiceExtraFields(semanticFields) {
+    return mapSemanticFields(SERVICE_EXTRA_FIELD_MAP, semanticFields);
   }
 
   // Returns report metadata when this frame hosts the Device Editor, or
@@ -334,16 +352,17 @@
     return applySingleFieldChange(scannumber, { service: newValue });
   }
 
-  // Clean Up Service Entries' Communicator/Communication Line/Monitoring
-  // special-case rules (see docs/cleanup-rules.md): unlike every other
-  // supported device type, these three can need more than just 'service'
-  // written in the same save (Communicator/Monitoring's Restore/Confirmed
-  // Time attribute field, and Monitoring's Comment/Solution on a failing
-  // outcome). `fields` uses semantic names (service, comment, solution,
-  // restoreTime, confirmedTime) - translated to real dataIndex names here,
-  // on exactly one record, same pattern as applySingleBatteryChange.
+  // Clean Up Service Entries rules that need more than just 'service'
+  // written in the same save: Communicator/Communication Line/Monitoring's
+  // Restore/Confirmed Time attribute field and Comment/Solution on a
+  // failing outcome (see docs/cleanup-rules.md), an Annual Heat Detector's
+  // Restorable checkbox sync, or a third-party serviced device's
+  // expiration Comment/Solution/Note. `fields` uses semantic names
+  // (service, comment, solution, note, restoreTime, confirmedTime,
+  // restorable) - translated to real dataIndex names here, on exactly one
+  // record, same pattern as applySingleBatteryChange.
   function applySingleServiceFieldsChange(scannumber, fields) {
-    return applySingleFieldChange(scannumber, toRawCommsFields(fields));
+    return applySingleFieldChange(scannumber, toRawServiceExtraFields(fields));
   }
 
   // Battery Cleanup: `fields` uses the semantic names in BATTERY_FIELD_MAP

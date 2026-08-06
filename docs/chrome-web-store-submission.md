@@ -60,8 +60,16 @@ WHAT IT DOES
    normalized the same way under either profile; Communicator and
    Monitoring also mirror the corrected time into one small device-attribute
    field BuildingReports itself already exposes for that device type
-   (Restore Time / Confirmed Time). Anything blank, ambiguous, unsupported,
-   or already correct is left untouched.
+   (Restore Time / Confirmed Time). Under the Annual profile, a Heat
+   Detector's existing Visual-only Service value is preserved as a
+   deliberate restorable/non-restorable signal, and BuildingReports' own
+   "Restorable" checkbox for that device is kept in sync. Air Pressure
+   Switch/Tamper Switch/Waterflow Switch/Kitchen Hood devices (serviced by
+   outside companies, not Passed/Failed tested) are normalized to "Svc. By
+   <Company> <Date>", abbreviating known industry words to fit
+   BuildingReports' character limit, and flag Comment/Solution/Note for
+   review when the service date is more than a year past. Anything blank,
+   ambiguous, unsupported, or already correct is left untouched.
 
 2. Battery Cleanup — scans every Battery device in the report and
    normalizes Rated Voltage / Amps / Post Test / Tested Ah formatting,
@@ -83,9 +91,11 @@ checkpointed locally so closing the popup mid-run never loses progress.
 WHAT IT DOES NOT DO
 
 This extension only ever edits a small, fixed set of device fields —
-Service; Battery's outcome and attribute fields; and, for Communicator and
+Service; Battery's outcome and attribute fields; for Communicator and
 Monitoring specifically, one existing device-attribute field each plus
-Monitoring's Comment/Solution — through BuildingReports' own Save
+Monitoring's Comment/Solution; for an Annual Heat Detector, one existing
+device-attribute checkbox (Restorable); and for third-party serviced
+devices, Comment/Solution/Note — through BuildingReports' own Save
 button/save API. It has no ability to submit, certify, finalize, sign,
 distribute, or delete a report, building, or device record, and no such
 capability is planned.
@@ -116,7 +126,8 @@ narrow purpose. Paste this into the "Single purpose" field:
 This extension has one purpose: to normalize and correct specific,
 well-defined data-entry fields (the Service field, Battery's outcome
 and attribute fields, and a small matching set of fields for
-Communicator/Communication Line/Monitoring devices) on
+Communicator/Communication Line/Monitoring devices, Annual Heat
+Detectors, and third-party serviced devices) on
 BuildingReports.com's Device Editor page, using BuildingReports' own
 existing save mechanism. Clean Up Service Entries and Battery Cleanup
 are two facets of that same purpose (device record field
@@ -193,10 +204,12 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   site.
 - **User activity**: No analytics/telemetry of any kind.
 - **Website content**: Yes — device record fields (Service text, Battery
-  attribute values, Communicator/Monitoring's attribute field, and the
-  Floor/Direction/Location/Description/Area-Suite context used to identify
-  battery pairs) from the BuildingReports report you have open, processed
-  locally as described above and in `PRIVACY.md`.
+  attribute values, Communicator/Monitoring's attribute field, an Annual
+  Heat Detector's Restorable field, third-party serviced devices'
+  Comment/Solution/Note, and the Floor/Direction/Location/Description/
+  Area-Suite context used to identify battery pairs) from the
+  BuildingReports report you have open, processed locally as described
+  above and in `PRIVACY.md`.
 
 Certify: "I do not sell or transfer user data to third parties" and "I do
 not use or transfer user data for purposes unrelated to the item's single

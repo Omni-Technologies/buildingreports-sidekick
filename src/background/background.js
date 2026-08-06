@@ -2,6 +2,11 @@ import { runCleanup } from '../cleanup/engine.js';
 import { runBatteryCleanup } from '../cleanup/battery-engine.js';
 import { getProfile } from '../config/inspection-profiles/index.js';
 import { createCheckpoint, runQueue, prepareResume, summarize, isComplete } from '../cleanup/write-queue.js';
+import { classifyThirdPartyServiceRecord } from '../cleanup/third-party-service-parser.js';
+
+// Third-party serviced devices' 31-character Service limit - see
+// docs/cleanup-rules.md's "Third-Party Serviced Devices" section.
+const THIRD_PARTY_SERVICE_LENGTH_LIMIT = 31;
 
 const ADAPTER_FILE = 'src/site-adapters/buildingreports/adapter.js';
 
@@ -90,10 +95,13 @@ async function getAllRecords(tabId, frameId) {
 // instead of ever setting more than one record dirty before clicking Save.
 // item.writeValue is a plain string (just the 'service' field) for every
 // ordinary supported device type - the original, unchanged path. It's an
-// object (e.g. { service, restoreTime }) only for the Communicator/
-// Communication Line/Monitoring special-case rules in classify.js/
-// communications-parser.js, which can need an extra device-attribute field
-// (or Comment/Solution) written in the same save - see
+// object (e.g. { service, restoreTime }) for the Communicator/Communication
+// Line/Monitoring special-case rules in classify.js/communications-parser.js,
+// an Annual Heat Detector's Restorable checkbox sync
+// ({ service, restorable }), or a third-party serviced device's expiration
+// flags ({ service, comment, solution, note } - see
+// third-party-service-parser.js and handleManualServiceFix) - any rule that
+// can need an extra field written in the same save alongside Service. See
 // docs/cleanup-rules.md. write-queue.js/the checkpoint never look inside
 // writeValue/priorValue either way (see docs/architecture.md), so Undo and
 // Resume automatically handle both shapes without any changes there.
@@ -282,11 +290,14 @@ async function handleApply(tabId, profileKey) {
     const summary = runCleanup(records, profile);
 
     const recordsBySn = new Map(records.map((r) => [String(r.scannumber), r]));
-    // Communicator/Communication Line/Monitoring safeChanges can carry
-    // extraFieldChanges (a device-attribute field and/or Comment/Solution -
-    // see communications-parser.js) alongside the Service text; every other
-    // device type's safeChange never has this property, so writeValue stays
-    // a plain string exactly as before for them.
+    // Some safeChanges can carry extraFieldChanges alongside the Service
+    // text: Communicator/Communication Line/Monitoring's device-attribute
+    // field and/or Comment/Solution (communications-parser.js), an Annual
+    // Heat Detector's Restorable checkbox (classify.js), or a third-party
+    // serviced device's expiration Comment/Solution/Note
+    // (third-party-service-parser.js). Every other device type's safeChange
+    // never has this property, so writeValue stays a plain string exactly
+    // as before for them.
     const items = summary.safeChanges.map((c) => {
       const priorRecord = recordsBySn.get(String(c.scannumber));
       if (c.extraFieldChanges && c.extraFieldChanges.length > 0) {
@@ -402,6 +413,82 @@ async function handleUndo(tabId) {
       cancelled: result.cancelled,
       pausedByUser: result.pausedByUser,
     };
+  } finally {
+    applyInProgress.delete(tabId);
+  }
+}
+
+// Manual fix for a third-party serviced device (Air Pressure Switch/Tamper
+// Switch/Waterflow Switch/Kitchen Hood) whose abbreviated company name
+// still didn't fit BuildingReports' 31-character Service limit - see
+// third-party-service-parser.js's `suggestedFix` and docs/cleanup-rules.md.
+// A human edits the suggested value in the popup; this writes exactly that
+// one record through the same single-record write-queue path every other
+// write uses (reusing the 'serviceApply' checkpoint kind rather than a new
+// one - it's conceptually still a Service Cleanup apply, and this also
+// means the existing "refuses to clobber an already-paused checkpoint"
+// guard protects it for free). Never trusts anything the popup computed -
+// re-fetches fresh records and re-runs classification on this one record
+// purely to pull its current expiration extraFieldChanges (Comment/
+// Solution/Note), so a manual Service fix still carries whatever
+// independently-correct expiration flags apply.
+async function handleManualServiceFix(tabId, scannumber, newValue) {
+  if (applyInProgress.has(tabId)) {
+    return { ok: false, error: 'already-running' };
+  }
+  if (typeof newValue !== 'string' || newValue.trim().length === 0) {
+    return { ok: false, error: 'invalid-value' };
+  }
+  if (newValue.length > THIRD_PARTY_SERVICE_LENGTH_LIMIT) {
+    return { ok: false, error: 'value-too-long' };
+  }
+  applyInProgress.add(tabId);
+  try {
+    const host = await detectReport(tabId);
+    if (!host) return { ok: false, error: 'report-not-found' };
+    const records = await getAllRecords(tabId, host.frameId);
+    if (!records) return { ok: false, error: 'report-not-found' };
+    const record = records.find((r) => String(r.scannumber) === String(scannumber));
+    if (!record) return { ok: false, error: 'record-not-found' };
+
+    const classification = classifyThirdPartyServiceRecord(record);
+    const extraFieldChanges = (classification && classification.extraFieldChanges) || [];
+
+    let writeValue;
+    let priorValue;
+    if (extraFieldChanges.length > 0) {
+      writeValue = { service: newValue };
+      priorValue = { service: record.service };
+      for (const fc of extraFieldChanges) {
+        writeValue[fc.field] = fc.after;
+        priorValue[fc.field] = fc.before;
+      }
+    } else {
+      writeValue = newValue;
+      priorValue = record.service;
+    }
+
+    const items = [{ scannumber, writeValue, priorValue }];
+    const inspectionId = host.meta.inspectionId;
+    const { checkpoint, wasExplicitCancel, refusedAlreadyPaused } = await runNewOperation({
+      tabId,
+      frameId: host.frameId,
+      kind: 'serviceApply',
+      inspectionId,
+      items,
+      saveItemFn: saveServiceItem,
+    });
+
+    if (refusedAlreadyPaused) {
+      return { ok: false, error: 'operation-already-paused', progress: summarize(checkpoint) };
+    }
+
+    const result = summarizeCheckpointForResponse(checkpoint, wasExplicitCancel);
+    if (inspectionId != null) {
+      await mergeUndoEntries(undoStorageKey(inspectionId), inspectionId, result.confirmedEntries);
+    }
+
+    return { ok: true, applied: result.applied, failed: result.failed };
   } finally {
     applyInProgress.delete(tabId);
   }
@@ -653,6 +740,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         case 'undo':
           sendResponse(await handleUndo(tabId));
+          break;
+        case 'manualServiceFix':
+          sendResponse(await handleManualServiceFix(tabId, message.scannumber, message.newValue));
           break;
         case 'batteryPreview':
           sendResponse(await handleBatteryPreview(tabId));

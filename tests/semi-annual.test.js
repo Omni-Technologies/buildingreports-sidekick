@@ -151,7 +151,7 @@ test('conflicting Passed and Failed remains untouched under Semi-Annual', () => 
 
 test('an unsupported device type remains untouched under Semi-Annual', () => {
   const r = classifyRecord(
-    makeRecord({ devicetype: 'Waterflow Switch', service: 'visual passed' }),
+    makeRecord({ devicetype: 'Fire Extinguisher', service: 'visual passed' }),
     semiAnnualProfile
   );
   assert.equal(r.bucket, Bucket.UNSUPPORTED_DEVICE_TYPE);

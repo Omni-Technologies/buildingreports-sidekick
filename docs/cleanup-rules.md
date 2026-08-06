@@ -35,11 +35,14 @@ Matching (`src/cleanup/device-type-matcher.js` +
 ("Bell / Strobe" = "Bell/Strobe"), and parenthetical spacing ("Carbon
 Dioxide(CO2)" = "Carbon Dioxide (CO2)") - but is always an exact match
 after normalization, never substring/fuzzy. A device type not on this list
-(e.g. real examples found in testing: Tamper Switch, Waterflow Switch) is
-left completely alone, regardless of what its Service field says.
+is left completely alone, regardless of what its Service field says.
 Communicator, Communication Line, and Monitoring were real-world examples
-of this too until their own rules were added - see "Communicator /
-Communication Line / Monitoring" below; they're no longer unsupported.
+of this until their own rules were added - see "Communicator /
+Communication Line / Monitoring" below; Air Pressure Switch, Tamper
+Switch, Waterflow Switch, and Kitchen Hood likewise until "Third-Party
+Serviced Devices" below - none of these seven are on this list (they're
+intercepted earlier in `classify.js`, before this check ever runs), but
+none of them are unsupported/untouched anymore either.
 
 ## Result parsing (`src/cleanup/service-parser.js`)
 
@@ -79,8 +82,12 @@ part of it looks parseable.
 On-Site Service Records` (matched case-insensitively, as the whole value or
 a clear leading phrase). Anything else that doesn't parse as a result and
 isn't blank falls into `unsupportedField` (e.g. real values found in
-testing: `Bar Coded`, `Svc. By Hooper 2/25`, `Yes, 11:02 AM`) - preserved,
-listed for review, never guessed at.
+testing: `Bar Coded`, `Yes, 11:02 AM`) - preserved, listed for review,
+never guessed at. `Svc. By Hooper 2/25`-style values were also real-world
+`unsupportedField` examples until 2026-08-06 - for the four "Third-Party
+Serviced Devices" listed below, that exact shape is now a **supported**
+canonical value instead; for every other (still-unsupported) device type
+it remains `unsupportedField`.
 
 ## Heat Detector / One Hitter exception (`src/cleanup/one-hitter.js`)
 
@@ -102,6 +109,45 @@ This was validated live: setting a real Heat Detector's Note field to `One
 Hitter` and its Service to `visual and functional, passed` classified it
 `safeChange` → `Visual, Passed`; clearing the note reverted it to standard
 `Visual & Functional, Passed` handling on the next Preview.
+
+## Heat Detector Restorable (Annual only, `src/cleanup/classify.js`)
+
+**Added 2026-08-06.** Independent of (but related to) the One Hitter
+exception above - technicians use `Visual, Passed/Failed` (no
+"& Functional") vs. `Visual & Functional, Passed/Failed` itself as a
+restorable/non-restorable signal, not just the One Hitter free-text
+marker. Annual-only (`annualProfile.heatDetectorVisualOnlyPreserved =
+true`; Semi-Annual doesn't set this and is completely unaffected - Heat
+Detector there is always `Visual`-only already, see below).
+
+- **A Heat Detector's Service value that already parses as `Visual,
+  Passed/Failed`** (no "& Functional", any spacing/capitalization
+  variation, and no confirmed One Hitter marker) is **preserved as
+  Visual-only** - normalized for spacing/capitalization only (e.g.
+  `visual,passed` → `Visual, Passed`), never upgraded to `Visual &
+  Functional`. This is the opposite of every other supported device type,
+  where a bare "Visual, Passed" always upgrades to the profile's standard
+  phrase.
+- **BuildingReports' own "Restorable" checkbox** (`#deviceAttrGrid` label
+  "Restorable", real dataIndex `simulated` - a plain boolean `checkcolumn`
+  field, confirmed live 2026-08-06) is kept in sync with which prefix
+  applies, corrective on every Apply run (both directions):
+  - **Checked** whenever the standard `Visual & Functional` prefix applies
+    (restorable, **both Passed and Failed outcomes** - restorable
+    describes the device type, not whether it passed).
+  - **Unchecked** whenever a Visual-only exception applies - either a
+    confirmed One Hitter marker, or the preserved-as-is signal above.
+  - This can make a record `safeChange` even when the Service text itself
+    doesn't change (e.g. Service is already correct `Visual & Functional,
+    Passed` but Restorable is still unchecked) - same "extra field can
+    change independently of Service" pattern as Communicator/Monitoring's
+    attribute-field sync below. Written as `{ service, restorable }` in a
+    single save via `applySingleServiceFieldsChange`, same as every other
+    multi-field Service Cleanup write.
+- Confirmed live (2026-08-06, a real report): a real Heat Detector already
+  `Visual & Functional, Passed` with Restorable unchecked classified
+  `safeChange` (Service text unchanged, Restorable → checked); Apply wrote
+  and verified it; Undo restored Restorable to unchecked exactly.
 
 ## Semi-Annual: device types (`src/config/inspection-profiles/semi-annual.js`)
 
@@ -232,6 +278,96 @@ synced attribute), one Communication Line (wrong wording cleaned up), and
 one Monitoring record (messy passing text -> canonical, synced attribute,
 cleared stale Comment/Solution) - all verified against the live grid, then
 restored to their original values.
+
+## Third-Party Serviced Devices (`src/cleanup/third-party-service-parser.js`)
+
+**Added 2026-08-06.** Air Pressure Switch, Tamper Switch, Waterflow
+Switch, and Kitchen Hood are serviced by outside companies, not
+Passed/Failed tested - their own fixed Service-field shape, completely
+unlike "Visual [& Functional], Passed/Failed", so - same as Communicator/
+Communication Line/Monitoring above - they're intercepted in `classify.js`
+**before** `isSupportedDeviceType` and handled entirely by
+`third-party-service-parser.js` instead. Applies **identically under both
+Annual and Semi-Annual** (the module doesn't take a `profile` argument at
+all).
+
+### Canonical shape
+
+`Svc. By <Company> <M>/<YY>` (e.g. `Svc. By Jefferson F&S 7/26`,
+confirmed live 2026-08-06 that real data already uses this exact shape -
+`Svc. By Hooper 2/25` on 5 real Tamper Switch/Waterflow Switch records,
+now classified `alreadyCorrect`). An existing `Svc. By`/`Svc By`/
+`Serviced By`/`Service By` prefix (case-insensitive, optional period) is
+tolerated and stripped before re-parsing, then always rebuilt with the
+canonical `Svc. By ` prefix. The trailing date must be exactly `M/YY` or
+`M/YYYY` (a 4-digit year is truncated to its last two digits) at the very
+end of the value - a day-included date (`4/1/26`) or any other shape isn't
+recognized, never guessed at. No date found → checked against the same
+preserve phrases as Annual/Semi-Annual (`Not Tested`, `No Access`, etc.,
+duplicated locally rather than imported so this module stays profile-
+independent) → else `unsupportedField`.
+
+### Abbreviation (`src/config/third-party-service-abbreviations.js`)
+
+The company text (everything before the date) is walked word by word:
+a run of consecutive words matching `ABBREVIATION_DICTIONARY` (currently
+`fire`→F, `protection`→P, `safety`→S, `alarm`→A, `security`→Sec,
+`systems`/`system`→Sys, `suppression`→Sup, `inspection`→Insp,
+`service`/`services`→Svc, `company`→Co - case-insensitive, trailing
+punctuation stripped) is joined with `&` into a single abbreviation token;
+`and`/`&` tokens are silent connectors, not abbreviated themselves; every
+other word (proper/company names) is left byte-for-byte untouched. This
+produces exactly: `Fire and Protection` → `F&P`, `Jefferson Fire And
+Safety` → `Jefferson F&S`, `Hooper` → `Hooper` (no dictionary words,
+unchanged). Add new words to the dictionary file as real examples turn up
+- that's the only file that needs touching for a new abbreviation word.
+
+If the abbreviated candidate still exceeds BuildingReports' 31-character
+Service limit, the record is `needsReview` with a `suggestedFix` field
+carrying the over-length candidate (never force-truncated) - the popup
+shows this as an editable pre-filled text box with an **"Apply This Fix"**
+button (see "Manual fix for records that don't fit" below). Every other
+bucket sets `suggestedFix: null`.
+
+### Expiration (Comment/Solution/Note only, never Service or Passed)
+
+Independent of whether the Service text itself changes (same "extra field
+can change on its own" pattern as Communicator/Monitoring): the service
+date's **last day of that month** (e.g. `4/26` → April 30, 2026) plus
+exactly one year is compared against Inspection Date. **Strictly more than
+a year** past (not exactly one year) sets `Comment` = `Date Expired`,
+`Solution` = `Investigate`, `Note` = `Customer To Investigate Maintenance
+On Device` - only for whichever of the three don't already match
+(idempotent). **Never touches the Passed checkbox, never touches Service
+text beyond its own normalization above, and never auto-clears these three
+fields when not expired** - deliberately conservative, since Comment/
+Solution/Note could hold unrelated pre-existing notes on a device type
+this extension has never touched before.
+
+### Manual fix for records that don't fit (popup UI + `manualServiceFix`)
+
+A rare case (confirmed live and exercised end-to-end 2026-08-06), but
+needs a path forward rather than a dead-end review item: the popup's
+Review list renders an inline editable text box (pre-filled with
+`suggestedFix`, `maxlength="31"`) and an "Apply This Fix" button for any
+`needsReview` item that carries one. Clicking it sends `{ type:
+'manualServiceFix', scannumber, newValue }` to `background.js`, which:
+validates non-blank/≤31 chars, re-fetches the record fresh and re-runs
+`classifyThirdPartyServiceRecord` purely to pull its current expiration
+`extraFieldChanges` (so a manual fix still carries independently-correct
+Comment/Solution/Note), writes it through the same single-item
+`runQueue`/`applySingleServiceFieldsChange` path as every other write
+(reusing the `serviceApply` checkpoint kind rather than a new one), and
+merges the confirmed entry into the same Undo history as an ordinary
+Apply - `Undo Last Cleanup` reverts a manual fix exactly like any other
+change, no special-casing. On success the popup re-runs Preview so the
+fixed record drops out of the review list automatically.
+
+Confirmed live end-to-end (2026-08-06, a real report): a Tamper Switch
+hand-set to a company name too long to abbreviate under 31 characters was
+correctly flagged `needsReview` with a matching `suggestedFix`; editing
+the popup's input to a shorter value and clicking "Apply This Fix" saved
+it, and a fresh Preview showed it `alreadyCorrect`.
 
 ## Adding to Battery Cleanup instead
 

@@ -3,7 +3,7 @@
 // called out in docs/cleanup-rules.md. Pure logic - no DOM/Ext dependency.
 
 const RESULT_PATTERN =
-  /^\s*visual\s*(?:(?:&|and)\s*functional)?\s*[,]?\s*(passed|failed)\b\s*(.*)$/i;
+  /^\s*visual\s*((?:&|and)\s*functional)?\s*[,]?\s*(passed|failed)\b\s*(.*)$/i;
 
 const HAS_PASSED = /\bpassed\b/i;
 const HAS_FAILED = /\bfailed\b/i;
@@ -19,16 +19,22 @@ export function hasConflictingResult(rawValue) {
 }
 
 // Attempts to parse a "Visual [& Functional], Passed/Failed <note>" value.
-// Returns { resultWord: 'Passed'|'Failed', suffix: string } on match, or
-// null when the value doesn't look like this kind of entry at all.
+// Returns { resultWord: 'Passed'|'Failed', suffix: string, hasFunctional:
+// boolean } on match, or null when the value doesn't look like this kind
+// of entry at all. `hasFunctional` records whether the raw value actually
+// said "& Functional"/"and functional" - used by classify.js's Annual Heat
+// Detector rule to tell an already-Visual-only entry (a deliberate
+// restorable/non-restorable signal - see docs/cleanup-rules.md) apart from
+// one that simply hasn't been normalized yet.
 export function parseVisualFunctionalResult(rawValue) {
   const match = RESULT_PATTERN.exec(rawValue);
   if (!match) return null;
-  const resultWord = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
-  const rawSuffix = match[2] || '';
+  const hasFunctional = !!match[1];
+  const resultWord = match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase();
+  const rawSuffix = match[3] || '';
   const trimmedSuffix = rawSuffix.replace(/^[\s\-:;,]+/, '').trim();
   const suffix = trimmedSuffix ? capitalizeFirst(trimmedSuffix) : '';
-  return { resultWord, suffix };
+  return { resultWord, suffix, hasFunctional };
 }
 
 // Builds the canonical string for a given prefix ("Visual & Functional" or

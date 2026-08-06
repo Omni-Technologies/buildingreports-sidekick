@@ -100,6 +100,38 @@ BuildingReports device-attribute field, add it to `COMMS_FIELD_MAP` in
 (`applySingleServiceFieldsChange`) - no other file needs to change for a
 rule tweak that stays within the existing field set.
 
+## Editing the Annual Heat Detector Restorable rule
+
+Everything lives in `classify.js`'s `if (parsed)` branch (the
+`heatDetectorPreserveVisualOnly`/`heatDetectorAnnualExtras` locals) plus
+one flag, `heatDetectorVisualOnlyPreserved: true`, on `annualProfile` in
+`src/config/inspection-profiles/annual.js` (Semi-Annual doesn't set it and
+is unaffected - same "profile opts in" pattern as
+`visualFunctionalDeviceTypeKeys`). To change the Restorable checkbox's
+real dataIndex, edit `HEAT_DETECTOR_FIELD_MAP` in `adapter.js` (confirm
+any change live via `#deviceAttrGrid`'s column config first - see
+`docs/buildingreports-dom-map.md` §7). See `docs/cleanup-rules.md`'s "Heat
+Detector Restorable" section for the current rule reference.
+
+## Editing the Third-Party Serviced Devices rule
+
+`src/cleanup/third-party-service-parser.js` (device-type list, parsing,
+the abbreviation algorithm's connector/flush logic, expiration) and
+`src/config/third-party-service-abbreviations.js` (the word→abbreviation
+dictionary - **the next new abbreviation word goes here**, a one-line
+addition) are the two files that matter. Adding a fifth third-party device
+type goes in `THIRD_PARTY_SERVICE_DEVICE_TYPES` in the parser file. Like
+`communications-parser.js`, this module doesn't take `profile` and is
+dispatched from `classify.js` before the ordinary supported-device-type
+check - no profile file needs to change. The popup's manual-fix UI
+(`reviewList`'s delegated click handler in `popup.js`) and
+`background.js`'s `manualServiceFix` handler are generic over any
+`suggestedFix`-carrying `needsReview` result, so a future rule that also
+wants an inline manual-fix affordance can reuse them by setting
+`suggestedFix` the same way, without touching either file. See
+`docs/cleanup-rules.md`'s "Third-Party Serviced Devices" section for the
+current rule reference.
+
 ## Adding to Battery Cleanup instead
 
 Battery Cleanup is the reference example of the "wholly new cleanup

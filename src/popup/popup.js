@@ -83,8 +83,10 @@ const LARGE_OPERATION_THRESHOLD = 10;
 const SERVICE_EXTRA_FIELD_LABELS = {
   restoreTime: 'Restore Time',
   confirmedTime: 'Confirmed Time',
+  restorable: 'Restorable',
   comment: 'Comment',
   solution: 'Solution',
+  note: 'Note',
 };
 
 const BUCKET_LABELS = {
@@ -452,10 +454,22 @@ function renderSummary(summary) {
   reviewSummary.textContent = `Review list (${reviewItems.length})`;
   reviewList.innerHTML = reviewItems.length
     ? reviewItems
-        .map(
-          (r) =>
-            `<div class="change-item"><strong>#${r.scannumber}</strong> (${r.devicetype}) — ${BUCKET_LABELS[r.bucket]}<br/><span>${escapeHtml(r.before)}</span><br/><em>${escapeHtml(r.reason)}</em></div>`
-        )
+        .map((r) => {
+          const base = `<div class="change-item"><strong>#${r.scannumber}</strong> (${r.devicetype}) — ${BUCKET_LABELS[r.bucket]}<br/><span>${escapeHtml(r.before)}</span><br/><em>${escapeHtml(r.reason)}</em>`;
+          // Only third-party-service-parser.js ever sets suggestedFix (the
+          // abbreviated company name still didn't fit BuildingReports' 31-
+          // character limit) - offer an inline editable fix instead of just
+          // leaving it for review with no path forward. See
+          // handleManualFixClick below and background.js's manualServiceFix.
+          const manualFix = r.suggestedFix != null
+            ? `<div class="manual-fix">` +
+              `<input type="text" class="manual-fix-input" data-scannumber="${r.scannumber}" value="${escapeHtml(r.suggestedFix)}" maxlength="31" />` +
+              `<button type="button" class="manual-fix-btn" data-scannumber="${r.scannumber}">Apply This Fix</button>` +
+              `<span class="manual-fix-status" data-scannumber-status="${r.scannumber}"></span>` +
+              `</div>`
+            : '';
+          return `${base}${manualFix}</div>`;
+        })
         .join('')
     : '<div>Nothing needs review.</div>';
 
@@ -594,6 +608,50 @@ function escapeHtml(str) {
     "'": '&#39;',
   }[c]));
 }
+
+// Handles "Apply This Fix" clicks for third-party-service-parser.js's rare
+// needs-manual-fix case (abbreviated company name still didn't fit
+// BuildingReports' 31-character limit - see renderSummary's manualFix
+// template above and background.js's manualServiceFix handler). Delegated
+// on the container since review items are re-rendered wholesale on every
+// Preview/fix rather than individually.
+reviewList.addEventListener('click', async (event) => {
+  const btn = event.target.closest('.manual-fix-btn');
+  if (!btn) return;
+  const sn = btn.dataset.scannumber;
+  const input = reviewList.querySelector(`.manual-fix-input[data-scannumber="${sn}"]`);
+  const statusEl = reviewList.querySelector(`[data-scannumber-status="${sn}"]`);
+  const value = input.value.trim();
+  if (!value) {
+    statusEl.textContent = 'Enter a value.';
+    return;
+  }
+  if (value.length > 31) {
+    statusEl.textContent = 'Too long (max 31 characters).';
+    return;
+  }
+  setBusy(true);
+  btn.disabled = true;
+  statusEl.textContent = 'Saving...';
+  try {
+    const result = await sendMessage({ type: 'manualServiceFix', scannumber: sn, newValue: value });
+    if (result && result.ok) {
+      statusEl.textContent = 'Saved - refreshing...';
+      const refreshed = await sendMessage({ type: 'preview', profileKey: profileSelect.value });
+      if (refreshed && refreshed.found) {
+        lastPreview = refreshed;
+        renderSummary(refreshed.summary);
+      }
+    } else {
+      statusEl.textContent = `Failed: ${(result && result.error) || 'unknown error'}`;
+      btn.disabled = false;
+    }
+  } catch (err) {
+    statusEl.textContent = `Failed: ${String(err)}`;
+    btn.disabled = false;
+  }
+  setBusy(false);
+});
 
 previewBtn.addEventListener('click', async () => {
   setBusy(true);

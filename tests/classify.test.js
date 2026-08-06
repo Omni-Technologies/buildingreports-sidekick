@@ -97,7 +97,7 @@ test('entries containing both Passed and Failed are flagged as conflicting and l
 
 test('unsupported device types are left alone regardless of Service content', () => {
   const r = classifyRecord(
-    makeRecord({ devicetype: 'Waterflow Switch', service: 'visual and functional, passed' }),
+    makeRecord({ devicetype: 'Fire Extinguisher', service: 'visual and functional, passed' }),
     annualProfile
   );
   assert.equal(r.bucket, Bucket.UNSUPPORTED_DEVICE_TYPE);
@@ -164,6 +164,110 @@ test('ambiguous One Hitter reference (e.g. "1 hitter") is flagged for review, no
   );
   assert.equal(r.bucket, Bucket.NEEDS_REVIEW);
   assert.equal(r.after, null);
+});
+
+// --- Annual Heat Detector: preserve an already-Visual-only value, and keep
+// the Restorable device-attribute checkbox synced. See annual.js's
+// heatDetectorVisualOnlyPreserved and docs/cleanup-rules.md.
+
+test('Annual Heat Detector already "Visual, Passed" is not upgraded to Visual & Functional', () => {
+  const variants = ['Visual, Passed', 'visual,passed', 'Visual  Passed', 'visual, PASSED'];
+  for (const service of variants) {
+    const r = classifyRecord(makeRecord({ devicetype: 'Heat Detector', service, restorable: false }), annualProfile);
+    assert.equal(r.bucket, service === 'Visual, Passed' ? Bucket.ALREADY_CORRECT : Bucket.SAFE_CHANGE, `for "${service}"`);
+    if (r.bucket === Bucket.SAFE_CHANGE) assert.equal(r.after, 'Visual, Passed');
+  }
+});
+
+test('Annual Heat Detector already "Visual, Failed" is not upgraded either', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'visual, failed', restorable: false }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual, Failed');
+});
+
+test('Annual Heat Detector Visual & Functional (Passed or Failed) checks Restorable when currently unchecked', () => {
+  for (const service of ['visual and functional, passed', 'visual and functional, failed']) {
+    const r = classifyRecord(
+      makeRecord({ devicetype: 'Heat Detector', service, restorable: false }),
+      annualProfile
+    );
+    assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+    const restorableChange = r.extraFieldChanges.find((c) => c.field === 'restorable');
+    assert.equal(restorableChange.after, true, `for "${service}"`);
+  }
+});
+
+test('Annual Heat Detector already Visual & Functional with Restorable already checked is fully correct', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'Visual & Functional, Passed', restorable: true }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.ALREADY_CORRECT);
+  assert.deepEqual(r.extraFieldChanges, []);
+});
+
+test('Annual Heat Detector Visual & Functional text unchanged but Restorable stale still needs a save', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'Visual & Functional, Passed', restorable: false }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual & Functional, Passed');
+  assert.equal(r.extraFieldChanges.find((c) => c.field === 'restorable').after, true);
+});
+
+test('Annual Heat Detector confirmed One Hitter unchecks a stale Restorable checkbox', () => {
+  const r = classifyRecord(
+    makeRecord({
+      devicetype: 'Heat Detector',
+      description: 'One Hitter',
+      service: 'visual and functional, passed',
+      restorable: true,
+    }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual, Passed');
+  assert.equal(r.extraFieldChanges.find((c) => c.field === 'restorable').after, false);
+});
+
+test('Annual Heat Detector Visual-only preserved case also unchecks a stale Restorable checkbox', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'visual,passed', restorable: true }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual, Passed');
+  assert.equal(r.extraFieldChanges.find((c) => c.field === 'restorable').after, false);
+});
+
+test('non-Heat-Detector devices never carry a restorable extraFieldChange', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Smoke Detector', service: 'visual and functional, passed' }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.deepEqual(r.extraFieldChanges, []);
+});
+
+test('Semi-Annual Heat Detector behavior is completely unaffected (no restorable syncing, still Visual-only)', () => {
+  const alreadyVisual = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'Visual, Passed', restorable: false }),
+    semiAnnualProfile
+  );
+  assert.equal(alreadyVisual.bucket, Bucket.ALREADY_CORRECT);
+  assert.deepEqual(alreadyVisual.extraFieldChanges, []);
+
+  const upgraded = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'visual and functional, passed', restorable: false }),
+    semiAnnualProfile
+  );
+  assert.equal(upgraded.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(upgraded.after, 'Visual, Passed');
+  assert.deepEqual(upgraded.extraFieldChanges, []);
 });
 
 // Semi-Annual profile behavior itself is covered in tests/semi-annual.test.js.

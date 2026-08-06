@@ -12,7 +12,7 @@ function buildMixedReport() {
     makeRecord({ scannumber: '3', service: '' }), // blank
     makeRecord({ scannumber: '4', service: 'visual and functional, failed - no response' }), // safe change (failed)
     makeRecord({ scannumber: '5', service: 'Not Tested' }), // preserved
-    makeRecord({ scannumber: '6', devicetype: 'Waterflow Switch', service: 'visual and functional, passed' }), // unsupported type
+    makeRecord({ scannumber: '6', devicetype: 'Fire Extinguisher', service: 'visual and functional, passed' }), // unsupported type
     makeRecord({ scannumber: '7', service: 'Passed then Failed on retest' }), // conflict
     makeRecord({ scannumber: '8', service: 'Bar Coded' }), // unsupported field
   ];

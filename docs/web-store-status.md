@@ -32,19 +32,23 @@ explicitly says so.
 - **Permissions changed since prior release?** No — manifest permissions
   unchanged (`scripting`, `storage`, `activeTab`, and the
   `https://www.buildingreports.com/*` host permission already covered the
-  new Communicator/Monitoring attribute-field write and the Install Date
-  read; both go through the existing adapter/single-record-save/write-queue
-  machinery).
+  new Communicator/Monitoring attribute-field write, the Install Date
+  read, the Annual Heat Detector Restorable attribute-field write, and the
+  Third-Party Serviced Devices Comment/Solution/Note write; all go through
+  the existing adapter/single-record-save/write-queue machinery).
 - **Privacy disclosures need updating?** Updated 2026-08-06 — `PRIVACY.md`
   and `docs/chrome-web-store-submission.md` were revised to describe the
   new Communicator/Communication Line/Monitoring Service Cleanup rules
   (including that Communicator/Monitoring now write one existing
-  device-attribute field each, plus Monitoring's Comment/Solution) and
+  device-attribute field each, plus Monitoring's Comment/Solution),
   Battery Cleanup's expiration source changing from Inspection Date to
-  Install Date.
+  Install Date, and (same day, second revision) the new Annual Heat
+  Detector Restorable field and Third-Party Serviced Devices
+  Comment/Solution/Note fields.
 - **Unreleased notes**: see `CHANGELOG.md`'s `## [Unreleased]` section
   (Communicator/Communication Line/Monitoring rules; Battery Cleanup
-  Install Date expiration) - not yet built into a release ZIP.
+  Install Date expiration; Annual Heat Detector Restorable rule;
+  Third-Party Serviced Devices rule) - not yet built into a release ZIP.
 - **0.1.3 release notes**: see `CHANGELOG.md`'s `## [0.1.3]` and
   `## [0.1.2]` sections (Battery Cleanup Left/Right pair failure
   propagation, generalized to scan all five identifying columns for the

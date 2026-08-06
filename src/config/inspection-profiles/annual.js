@@ -87,4 +87,14 @@ export const annualProfile = {
   oneHitterPhrase: 'Visual',
   oneHitterPattern: ONE_HITTER_PATTERN,
   ambiguousOneHitterPattern: AMBIGUOUS_ONE_HITTER_PATTERN,
+  // Annual-only: a Heat Detector whose Service already says "Visual,
+  // Passed/Failed" (no "& Functional") is a deliberate restorable/
+  // non-restorable signal from the technician, not an un-normalized value -
+  // classify.js preserves the Visual-only prefix instead of upgrading it,
+  // and syncs the Restorable device-attribute checkbox to match (checked
+  // for "Visual & Functional", unchecked for Visual-only - either from
+  // this signal or a confirmed One Hitter marker). Semi-Annual doesn't set
+  // this (Heat Detector there is always Visual-only already - see
+  // semi-annual.js), so it's unaffected. See docs/cleanup-rules.md.
+  heatDetectorVisualOnlyPreserved: true,
 };

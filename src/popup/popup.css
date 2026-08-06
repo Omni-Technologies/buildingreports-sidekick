@@ -88,6 +88,29 @@ button:disabled {
   color: #0b6a0b;
 }
 
+.manual-fix {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.manual-fix-input {
+  flex: 1;
+  padding: 3px 4px;
+  font: inherit;
+}
+
+.manual-fix-btn {
+  flex: none;
+  padding: 3px 6px;
+}
+
+.manual-fix-status {
+  font-size: 11px;
+  color: #3a3a3a;
+}
+
 pre#diagnosticsText {
   white-space: pre-wrap;
   word-break: break-all;

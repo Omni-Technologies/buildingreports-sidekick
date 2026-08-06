@@ -357,6 +357,17 @@ Line's has only `manufacturedate` (Manufacture Date) - no attribute field
 at all for that device type, confirmed by direct inspection of a real
 Communication Line record.
 
+Confirmed live (2026-08-06, same technique, `HEAT_DETECTOR_FIELD_MAP` in
+`adapter.js`) for the Annual Heat Detector Restorable rule (see
+`docs/cleanup-rules.md`): Heat Detector's `#deviceAttrGrid` has
+`manufacturedate`/`type`/`seconds` ("Response Time")/`pressure`
+("Temperature Rating")/`devicefunction` ("Function")/**`simulated`
+("Restorable")**/`intelligible` ("Supporting Field Device (SFD)") - a
+plain boolean `checkcolumn` field (`fieldModel.getType() === 'bool'`),
+same simple pass-through as Battery's `passed` checkbox, not one of the
+generic-attribute-column-reused-for-a-different-purpose quirks like Min
+Ah/Tested Ah.
+
 A useful shortcut for finding the underlying dataIndex behind any visible
 attribute-panel label without selecting a device first: every field also
 gets an auto-generated search-box `itemId` of the form
@@ -375,7 +386,14 @@ gets an auto-generated search-box `itemId` of the form
   not investigated further, but worth a look for future automations.
 - Real (already-clean) reports still contain plenty of legitimate
   non-"Visual & Functional" Service values worth knowing about: `"Bar
-  Coded"`, `"Svc. By Hooper 2/25"`, timestamp-style entries like `"Yes,
-  11:02 AM"`, and `"Restored @ 11:29 AM 5/1/25"`. These are exactly why the
+  Coded"`, `"Svc. By Hooper 2/25"` (this exact shape is now a **supported**
+  canonical value for Air Pressure Switch/Tamper Switch/Waterflow Switch/
+  Kitchen Hood as of 2026-08-06 - see `docs/cleanup-rules.md`'s
+  "Third-Party Serviced Devices" section - confirmed live on a real report
+  that 5 real Tamper Switch/Waterflow Switch records already carried
+  exactly this value and classified `alreadyCorrect`), timestamp-style
+  entries like `"Yes, 11:02 AM"`, and `"Restored @ 11:29 AM 5/1/25"`.
+  `"Bar Coded"` remains genuinely unsupported (not third-party-serviced
+  device types in that same report). These are exactly why the
   cleanup engine has a dedicated "unsupported field format" bucket instead
   of forcing everything into Passed/Failed.

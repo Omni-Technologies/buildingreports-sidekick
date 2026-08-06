@@ -18,6 +18,21 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
+- **Added**: Under the Annual profile, a Heat Detector already showing
+  "Visual, Passed/Failed" (no "& Functional") is preserved as a deliberate
+  restorable/non-restorable signal instead of being upgraded to "Visual &
+  Functional" - and BuildingReports' own "Restorable" checkbox for that
+  device is kept in sync (checked for Visual & Functional, unchecked for
+  Visual-only). Semi-Annual is unaffected.
+- **Added**: Clean Up Service Entries now normalizes Air Pressure Switch,
+  Tamper Switch, Waterflow Switch, and Kitchen Hood (serviced by outside
+  companies, not Passed/Failed tested) to "Svc. By <Company> <M>/<YY>",
+  abbreviating known fire-industry words to fit BuildingReports' 31-
+  character Service limit - applies under both Annual and Semi-Annual. If
+  the service date is more than a year past, Comment/Solution/Note are set
+  to flag it for investigation. When the abbreviated name still doesn't
+  fit, the record is flagged for review with an editable suggested fix and
+  an inline "Apply This Fix" control in the popup.
 - **Added**: Clean Up Service Entries now normalizes Communicator
   (`Restored @ <time> <date>`, mirroring the time into a Restore Time
   field), Communication Line (`Yes, <time>`), and Monitoring (`Yes, <time>`,

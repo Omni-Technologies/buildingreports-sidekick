@@ -7,6 +7,7 @@ import {
   buildCanonicalService,
 } from './service-parser.js';
 import { classifyCommsRecord } from './communications-parser.js';
+import { classifyThirdPartyServiceRecord } from './third-party-service-parser.js';
 
 // Classification buckets. Every record gets exactly one, mirroring the
 // Preview summary categories in the spec.
@@ -63,6 +64,15 @@ export function classifyRecord(record, profile) {
   const commsResult = classifyCommsRecord(record);
   if (commsResult) return commsResult;
 
+  // Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood
+  // are serviced by outside companies ("Svc. By <Company> <M>/<YY>"), not
+  // Passed/Failed tested, and aren't in either profile's supported device
+  // list - handled entirely by third-party-service-parser.js instead,
+  // identically under both profiles (it doesn't take `profile` either).
+  // See docs/cleanup-rules.md.
+  const thirdPartyResult = classifyThirdPartyServiceRecord(record);
+  if (thirdPartyResult) return thirdPartyResult;
+
   if (!isSupportedDeviceType(deviceType, profile)) {
     return { bucket: Bucket.UNSUPPORTED_DEVICE_TYPE, before, after: null, reason: `Unsupported device type "${deviceType}"` };
   }
@@ -89,22 +99,55 @@ export function classifyRecord(record, profile) {
 
   const parsed = parseVisualFunctionalResult(rawService);
   if (parsed) {
+    // Annual-only: a Heat Detector whose Service already says "Visual,
+    // Passed/Failed" (no "& Functional") is a deliberate restorable/
+    // non-restorable signal from the technician (see annual.js's
+    // heatDetectorVisualOnlyPreserved and docs/cleanup-rules.md) - preserve
+    // the Visual-only prefix instead of upgrading it to standardPhrase.
+    // Semi-Annual doesn't set the flag, so this is always false there and
+    // behavior is unchanged (Heat Detector already falls through to
+    // isVisualFunctionalDeviceType/standardPhrase as before).
+    const heatDetectorPreserveVisualOnly =
+      heatDetector &&
+      !!profile.heatDetectorVisualOnlyPreserved &&
+      oneHitterState !== 'confirmed' &&
+      parsed.hasFunctional === false;
+
     // Prefix precedence: a confirmed Heat Detector One Hitter exception
-    // (Annual only - see one-hitter.js) wins first; otherwise a profile
-    // that groups device types by prefix (Semi-Annual's Visual & Functional
-    // subset) picks per device type; otherwise every supported device type
-    // uses the profile's single standardPhrase (Annual's current behavior).
+    // (Annual only - see one-hitter.js) wins first; then the Visual-only
+    // preserved signal just above; otherwise a profile that groups device
+    // types by prefix (Semi-Annual's Visual & Functional subset) picks per
+    // device type; otherwise every supported device type uses the
+    // profile's single standardPhrase (Annual's default behavior).
     const prefix =
       heatDetector && oneHitterState === 'confirmed'
         ? profile.oneHitterPhrase
-        : isVisualFunctionalDeviceType(deviceType, profile)
-          ? profile.visualFunctionalPhrase
-          : profile.standardPhrase;
+        : heatDetectorPreserveVisualOnly
+          ? profile.oneHitterPhrase
+          : isVisualFunctionalDeviceType(deviceType, profile)
+            ? profile.visualFunctionalPhrase
+            : profile.standardPhrase;
     const canonical = buildCanonicalService(prefix, parsed);
-    if (canonical === before) {
-      return { bucket: Bucket.ALREADY_CORRECT, before, after: null, reason: 'Already canonical' };
+
+    // Annual-only: sync the Restorable device-attribute checkbox to match
+    // whichever prefix was just picked - checked whenever the standard
+    // "Visual & Functional" prefix applies (restorable, either outcome),
+    // unchecked whenever a Visual-only exception applied (One Hitter or the
+    // preserved-as-is signal above). Independent of whether the Service
+    // text itself changed - same "extra field can change even when Service
+    // doesn't" pattern as communications-parser.js's Confirmed Time sync.
+    const extraFieldChanges = [];
+    if (heatDetector && profile.heatDetectorVisualOnlyPreserved) {
+      const shouldBeRestorable = !(oneHitterState === 'confirmed' || heatDetectorPreserveVisualOnly);
+      if (record.restorable !== shouldBeRestorable) {
+        extraFieldChanges.push({ field: 'restorable', before: record.restorable, after: shouldBeRestorable });
+      }
     }
-    return { bucket: Bucket.SAFE_CHANGE, before, after: canonical, reason: 'Normalized standard result' };
+
+    if (canonical === before && extraFieldChanges.length === 0) {
+      return { bucket: Bucket.ALREADY_CORRECT, before, after: null, reason: 'Already canonical', extraFieldChanges: [] };
+    }
+    return { bucket: Bucket.SAFE_CHANGE, before, after: canonical, reason: 'Normalized standard result', extraFieldChanges };
   }
 
   if (matchesPreservePhrase(rawService, profile)) {

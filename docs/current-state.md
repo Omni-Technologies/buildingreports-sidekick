@@ -14,7 +14,17 @@ changes — it's meant to save a future session from re-deriving all of this.
   Service-field shapes, applied identically under both profiles, with
   Communicator/Monitoring also writing a device-attribute field alongside
   Service (a new capability for this action — every other supported device
-  type only ever writes Service).
+  type only ever writes Service). Also includes (both added 2026-08-06):
+  an Annual-only Heat Detector rule (`classify.js`) that preserves an
+  already-`Visual, Passed/Failed` value instead of upgrading it, and syncs
+  BuildingReports' own "Restorable" checkbox; and Third-Party Serviced
+  Devices (`src/cleanup/third-party-service-parser.js` +
+  `src/config/third-party-service-abbreviations.js`) — Air Pressure
+  Switch/Tamper Switch/Waterflow Switch/Kitchen Hood normalized to `Svc.
+  By <Company> <M>/<YY>`, applied identically under both profiles, with a
+  popup manual-fix UI (`manualServiceFix` message) for the rare case an
+  abbreviated company name still doesn't fit BuildingReports' 31-character
+  limit.
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
   Undo, independent Undo history from Service Cleanup, same write queue.
   Full rule reference: `docs/battery-cleanup-rules.md`. 3-year expiration is
@@ -31,12 +41,13 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**160 tests, 0 failures** across `tests/*.test.js`
+**190 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `engine.test.js`, `semi-annual.test.js`,
-`write-queue.test.js`). Synthetic fixtures only (`tests/fixtures.js`), zero
-mocking, zero DOM dependency. If this count drifts from what's actually
-reported by `npm test`, trust the live run, not this file.
+`third-party-service-parser.test.js`, `write-queue.test.js`). Synthetic
+fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
+this count drifts from what's actually reported by `npm test`, trust the
+live run, not this file.
 
 ## Known BuildingReports internals
 
@@ -71,14 +82,20 @@ reported by `npm test`, trust the live run, not this file.
 
 ## Adapter version
 
-`ADAPTER_VERSION = 5` (`src/site-adapters/buildingreports/adapter.js`) —
+`ADAPTER_VERSION = 6` (`src/site-adapters/buildingreports/adapter.js`) —
 single-record save API (`applySingleServiceChange`/
 `applySingleServiceFieldsChange`/`applySingleBatteryChange`). Bump this
 constant whenever `adapter.js` changes, per the versioned-re-injection
 scheme in `docs/architecture.md`. Version 5 (2026-08-06) added
 `installDate` (Battery Cleanup's new expiration input) and
 `COMMS_FIELD_MAP`/`applySingleServiceFieldsChange` (Communicator/
-Communication Line/Monitoring's Service Cleanup rules).
+Communication Line/Monitoring's Service Cleanup rules). Version 6
+(2026-08-06) added `HEAT_DETECTOR_FIELD_MAP` (`restorable` → real
+dataIndex `simulated`, confirmed live) for the Annual Heat Detector
+Restorable rule, folded into the same `SERVICE_EXTRA_FIELD_MAP`/
+`applySingleServiceFieldsChange` path `COMMS_FIELD_MAP` already used (no
+new adapter method needed for Third-Party Serviced Devices - Service/
+Comment/Solution/Note were already plain pass-through fields).
 
 ## Known limitations / unresolved items
 
@@ -174,6 +191,26 @@ anywhere in this repo):
   dom-map §5.1) happened, was recovered from, and the fix was verified live
   in the same session - see `docs/architecture.md` and
   `docs/buildingreports-dom-map.md` for the technical detail.
+- **Annual Heat Detector Restorable + Third-Party Serviced Devices
+  (2026-08-06, same report):** Preview correctly identified the report's
+  one real Heat Detector (already `Visual & Functional, Passed`) as
+  needing only its Restorable checkbox checked (Service text unchanged),
+  and correctly classified all 5 real Tamper Switch/Waterflow Switch
+  records (`Svc. By Hooper 2/25`) as `alreadyCorrect`. A hand-dirtied test
+  (one Tamper Switch set to `Jefferson Fire And Safety 7/26`, another to
+  an intentionally-too-long company name) confirmed: the abbreviation rule
+  producing `Svc. By Jefferson F&S 7/26` exactly; the too-long record
+  correctly flagged `needsReview` with a matching `suggestedFix`; the new
+  popup manual-fix UI (edit the suggested text, click "Apply This Fix")
+  correctly saving a shortened value end-to-end through `manualServiceFix`;
+  a combined Apply of the Heat Detector + abbreviation change (2 items)
+  saving and verifying correctly; and Undo correctly reverting all 3
+  confirmed writes (checked via `chrome.storage.local`'s entry count
+  first - exactly 3, no leftovers). Both hand-edited Tamper Switch records
+  were restored to their true original `Svc. By Hooper 2/25` afterward (a
+  direct corrective write, since Undo only reverts to the hand-set test
+  value, not the pre-test original), and a final Preview confirmed the
+  report matched its very first Preview result exactly.
 
 ## Files most likely to change for future rules
 
