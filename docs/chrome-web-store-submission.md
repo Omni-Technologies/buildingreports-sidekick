@@ -92,10 +92,12 @@ WHAT IT DOES
    name and company name) — every other field (Post Test, Tested Ah, Min
    Ah, Model Number, Passed, Service, Comment, Solution) is then set or
    recalculated automatically from that input, and a dated note
-   summarizing the repair is appended below any existing notes. Nothing is
-   written until you review the full list and click Apply. Device types
-   without an automated rule yet are simply flagged for you to handle by
-   hand — never guessed at.
+   summarizing the repair is appended below any existing notes. Every
+   other device type gets a simpler generic form (just a note you type)
+   that marks the device Passed with canonical Service text and a cleared
+   Comment/Solution — a placeholder until a dedicated rule exists for that
+   device type. Nothing is written until you review the full list and
+   click Apply.
 
 All three actions follow the same safe workflow: Preview/scan (read-only,
 shows exactly what would change and why) → Apply (writes only the changes

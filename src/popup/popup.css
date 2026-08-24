@@ -53,14 +53,17 @@ select {
   color: #666;
 }
 
-#repairBatteryForm label {
+#repairBatteryForm label,
+#repairGenericForm label {
   margin-top: 6px;
 }
 
-#repairBatteryForm input {
+#repairBatteryForm input,
+#repairGenericForm textarea {
   width: 100%;
   padding: 4px;
   box-sizing: border-box;
+  font: inherit;
 }
 
 .error {

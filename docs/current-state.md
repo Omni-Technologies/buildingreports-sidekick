@@ -48,18 +48,24 @@ changes — it's meant to save a future session from re-deriving all of this.
   expiration still independently applies.
 - **Repaired / Fixed** — added 2026-08-24. Human-driven, unlike the two
   actions above: walks only devices currently marked Failed, one at a time,
-  asking "was this repaired/replaced?" for each. Battery has the only rule
-  so far (`src/cleanup/repair-battery.js`): a short form (Amps, replacement
-  date, technician/customer name, company name) computes Post Test/Tested
-  Ah → `0.00`, Min Ah/Model Number derived from the new Amps, Passed
-  checked, Comment/Solution cleared, Service → `Visual & Functional,
-  Passed`, and a new line appended below the existing Note. A device type
-  with no rule yet is flagged for manual review instead of guessed at.
-  Nothing is written until "Apply Repairs" is clicked, through the same
-  paced write queue as everything else, with its own Undo history
-  (`repairApply`/`repairUndo` checkpoint kinds, kept separate from Battery
-  Cleanup's even though both write Battery fields). Gave the adapter a
-  genuinely new capability: **writing** Install Date (`adapter.js`'s
+  asking "was this repaired/replaced?" for each. Battery has its own form
+  (`src/cleanup/repair-battery.js`): Amps, replacement date, technician/
+  customer name, company name — computes Post Test/Tested Ah → `0.00`,
+  Min Ah/Model Number derived from the new Amps, Passed checked, Comment/
+  Solution cleared, Service → `Visual & Functional, Passed`, and a new
+  line appended below the existing Note. Every other device type gets a
+  **generic fallback form** (`src/cleanup/repair-generic.js`, added same
+  day, explicitly requested): a typed Note, Passed checked, canonical
+  Service text, Comment/Solution cleared — a placeholder until a real
+  pattern is identified and a dedicated rule replaces it for that device
+  type; there is no more "flag for review only, no write" path. Nothing is
+  written until "Apply Repairs" is clicked, through the same paced write
+  queue as everything else, with its own Undo history (`repairApply`/
+  `repairUndo` checkpoint kinds, kept separate from Battery Cleanup's even
+  though both write Battery fields; a single Apply run can mix Battery and
+  generic-device items, routed per-item by `deviceKind` in
+  `background.js`'s `saveRepairItem`). Gave the adapter a genuinely new
+  capability: **writing** Install Date (`adapter.js`'s
   `BATTERY_DATE_FIELD_MAP`/`parseLocalDateOnlyString`, `ADAPTER_VERSION`
   bumped to 7) - previously read-only everywhere in this codebase. Full
   rule reference: `docs/repair-fixed-rules.md`.
@@ -74,10 +80,10 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**227 tests, 0 failures** across `tests/*.test.js`
+**235 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `engine.test.js`, `repair-battery.test.js`,
-`repair-engine.test.js`, `semi-annual.test.js`,
+`repair-engine.test.js`, `repair-generic.test.js`, `semi-annual.test.js`,
 `third-party-service-parser.test.js`, `write-queue.test.js`). Synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
 this count drifts from what's actually reported by `npm test`, trust the
@@ -238,10 +244,22 @@ here):**
   testing: `.hidden`'s `display: none` lost a cascade tie against
   `.actions`' `display: flex` when both classes were on the same element
   (`repairYesNoBar`), which is a `<div class="actions">` toggled hidden
-  directly - `.hidden` now uses `!important` (see `popup.css`). The
-  "no-rule-yet device" review path (a Failed non-Battery device answered
-  "Yes") was unit-tested only - this report had no Failed non-Battery
-  device to test live against.
+  directly - `.hidden` now uses `!important` (see `popup.css`).
+- **Repaired/Fixed generic fallback (same day, same report, explicitly
+  requested after the above):** a real Smoke Detector was hand-set to
+  Failed. "Start Repair Walkthrough" correctly scanned to 3 devices (the 2
+  real Failed Batteries + the Smoke Detector) in report order; answering
+  "No" for both Batteries and "Yes" for the Smoke Detector correctly
+  showed the generic form (Note only, no Battery-specific fields). Typing
+  `Cleaned smoke chamber and retested - passed` and Apply correctly wrote
+  Passed=checked, Service=`Visual & Functional, Passed`, Comment/
+  Solution="", Note=exactly the typed text - verified directly against the
+  live grid, confirmed routed through `saveServiceItem`'s path
+  (`deviceKind: 'generic'`), distinct from the Battery items' path in the
+  same session. Undo correctly restored the device's real prior Failed
+  state exactly. Also found and fixed a labeling bug from the original
+  Repair build: the Undo confirmation text hardcoded "Battery field(s)"
+  regardless of what was actually being restored - now says "device(s)".
 
 Verified end-to-end against a real, live BuildingReports report through
 Chrome DevTools MCP (no customer/report identifiers recorded here or

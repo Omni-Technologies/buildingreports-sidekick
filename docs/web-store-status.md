@@ -65,13 +65,21 @@ explicitly says so.
   history. This is the first feature to **write** Install Date
   (`ADAPTER_VERSION` bumped to 7 - previously read-only) and the first to
   take free-text human input (technician/company name) written into a
-  device field. No manifest permission changes for any of this. Privacy
-  disclosures **were** updated 2026-08-24 for the Repaired/Fixed action
-  specifically (`PRIVACY.md` and `docs/chrome-web-store-submission.md`
-  both revised to describe the Install Date write and the typed
-  technician/company name input) - the Battery Cleanup/Communicator
-  changes listed above needed no privacy-disclosure changes (no new data
-  read, stored, or transmitted beyond what was already listed).
+  device field. **Refined later the same day (explicitly requested):**
+  every other device type now also gets an automated generic fallback
+  form (a single typed note → Passed/Service/Comment/Solution set the same
+  way) instead of the original "flag for manual review, no write" - there
+  is no more review-only dead end; a single Apply run can mix Battery and
+  generic-device writes, routed per-item to the correct adapter path.
+  Live-verified against a real Smoke Detector. No manifest permission
+  changes for any of this. Privacy disclosures **were** updated 2026-08-24
+  for the Repaired/Fixed action (`PRIVACY.md` and
+  `docs/chrome-web-store-submission.md` both revised to describe the
+  Install Date write and the typed technician/company/note input, for both
+  the Battery rule and the generic fallback) - the Battery Cleanup/
+  Communicator changes listed above needed no privacy-disclosure changes
+  (no new data read, stored, or transmitted beyond what was already
+  listed).
 - **0.1.4 release notes**: see `CHANGELOG.md`'s `## [0.1.4]` section
   (Annual Heat Detector Restorable rule; Third-Party Serviced Devices
   rule; Communicator/Communication Line/Monitoring rules; Battery Cleanup

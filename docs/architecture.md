@@ -345,9 +345,10 @@ Service Entries, not a variant of it - added by following
 ## Repaired/Fixed: a third, human-driven cleanup action
 
 **Added 2026-08-24.** `src/cleanup/repair-engine.js` +
-`src/cleanup/repair-battery.js` are architecturally a third sibling to
-Clean Up Service Entries and Battery Cleanup, but a genuinely different
-shape - see `docs/repair-fixed-rules.md` for the full rule reference:
+`src/cleanup/repair-battery.js`/`repair-generic.js` are architecturally a
+third sibling to Clean Up Service Entries and Battery Cleanup, but a
+genuinely different shape - see `docs/repair-fixed-rules.md` for the full
+rule reference:
 
 - **Human-driven, not classify-everything.** Unlike Preview/Apply for the
   other two actions, nothing here is auto-classified from report data -
@@ -356,23 +357,33 @@ shape - see `docs/repair-fixed-rules.md` for the full rule reference:
   `scanFailedDevices(records)` is the only automatic part: it filters to
   `passed === false` devices (in report order) so the popup only ever asks
   about devices that actually need it.
+- **Every "yes" gets a form - never a dead-end review flag.** Battery has
+  its own (`repair-battery.js`); every other device type gets a generic
+  one (`repair-generic.js`, added same day, explicitly requested) as a
+  placeholder until a real pattern is identified for that device type -
+  `repair-engine.js`'s `getRepairRuleKey` always returns one or the other.
 - **Pure logic imported directly into the popup**, not just the background
-  service worker. `repair-battery.js`'s `buildBatteryRepairChange(record,
-  input)` has zero `chrome.*`/DOM dependency (same as every other
-  `cleanup/*` module), so `popup.js` imports it directly (`popup.html`
-  already loads `popup.js` as `type="module"`) and computes each device's
-  write payload the instant its form is submitted, without a round-trip
-  through `background.js` - the wizard needs to react to each answer
-  immediately, and there's nothing about the computation that needs to run
-  in the service worker specifically.
+  service worker. Both rule files' `buildXxxRepairChange(record, input)`
+  have zero `chrome.*`/DOM dependency (same as every other `cleanup/*`
+  module), so `popup.js` imports them directly (`popup.html` already loads
+  `popup.js` as `type="module"`) and computes each device's write payload
+  the instant its form is submitted, without a round-trip through
+  `background.js` - the wizard needs to react to each answer immediately,
+  and there's nothing about the computation that needs to run in the
+  service worker specifically.
 - **Nothing is written until "Apply Repairs" is clicked.** The popup
   accumulates a `repairPendingItems` array purely in its own in-memory
   state as the human answers each device; only the final click sends the
   whole batch to `background.js`'s `handleRepairApply`, which runs it
   through the exact same `cleanup/write-queue.js` coordinator as every
-  other write path (checkpoint kind `repairApply`, currently hardcoded to
-  `saveBatteryItem` since Battery is the only device type with a rule so
-  far).
+  other write path (checkpoint kind `repairApply`). A single run can mix
+  Battery and generic-device items, so each item carries a `deviceKind`
+  (`'battery'` | `'generic'`, set by `popup.js` when the item is queued)
+  and `background.js`'s `saveRepairItem` routes per-item to the correct
+  adapter path (`saveBatteryItem` for Battery's semantic-name-translated
+  fields, `saveServiceItem` for the generic rule's plain
+  already-real-dataIndex fields) - `deviceKind` is carried through the
+  checkpoint and into the Undo entry so a later Undo routes correctly too.
 - **Own checkpoint kinds and Undo history**, kept separate from Battery
   Cleanup's (`repairApply`/`repairUndo`, `brSidekick.repairUndo.
   <inspectionId>`) even though both can write the same Battery fields -

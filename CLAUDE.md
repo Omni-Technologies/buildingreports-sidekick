@@ -56,17 +56,20 @@ reports, operated from a popup on the report's **Device Editor** page.
 3. **Repaired / Fixed** — architecturally unlike the two above: nothing is
    auto-classified. A human-driven, one-device-at-a-time wizard that only
    walks devices currently marked **Failed**, asking "was this
-   repaired/replaced?" for each. A device type with a rule (currently only
-   Battery — see `docs/repair-fixed-rules.md`) gets a short form on "yes"
+   repaired/replaced?" for each. Battery has its own short form on "yes"
    (Amps, replacement date, technician/customer name, company name — every
-   other field is fixed or derived, never asked); a device type with no
-   rule yet is flagged for manual review instead of guessed at. Nothing is
-   written until **Apply Repairs** is clicked, going through the same
-   paced write queue as everything else, with its own **Undo Last
-   Repair** button/checkpoint kinds/Undo history — independent of Battery
-   Cleanup even though both can touch the same Battery fields. Gave the
-   Battery rule a genuinely new adapter capability: **writing** Install
-   Date (previously read-only everywhere in this codebase).
+   other field is fixed or derived, never asked) — see
+   `docs/repair-fixed-rules.md`. Every other device type gets a **generic
+   fallback form** (Passed checked, canonical Service text, Comment/
+   Solution cleared, a note you type — a deliberate placeholder until a
+   real pattern is identified and a dedicated rule replaces it for that
+   device type). Nothing is written until **Apply Repairs** is clicked,
+   going through the same paced write queue as everything else, with its
+   own **Undo Last Repair** button/checkpoint kinds/Undo history —
+   independent of Battery Cleanup even though both can touch the same
+   Battery fields. Gave the Battery rule a genuinely new adapter
+   capability: **writing** Install Date (previously read-only everywhere
+   in this codebase).
 
 All three actions share one popup, one background service worker, one site
 adapter, and — critically — one paced write coordinator (see below).

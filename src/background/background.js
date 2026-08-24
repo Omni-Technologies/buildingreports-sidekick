@@ -142,6 +142,26 @@ async function saveBatteryItem(tabId, frameId, item) {
   return results[0] && results[0].result;
 }
 
+// Repair/Fixed can write two different shapes now that a generic
+// (non-Battery) rule exists alongside the Battery one - a single
+// checkpoint kind ('repairApply'/'repairUndo') can carry a mix of both in
+// one run, so routing is per-item rather than per-checkpoint. Battery
+// items use the Battery-attribute-aware adapter path (semantic names like
+// amps/minAh/installDate need BATTERY_FIELD_MAP/BATTERY_DATE_FIELD_MAP
+// translation); every other device type's repair rule so far only ever
+// writes plain Service-shaped fields (passed/comment/solution/service/
+// note, which already share their real dataIndex name), so it goes
+// through the same path Service Cleanup uses. `item.deviceKind` is set by
+// popup.js when the item is built (see repairYesBtn's form handlers) and
+// carried through the checkpoint/Undo entry unchanged - see
+// summarizeCheckpointForResponse and handleRepairUndo below.
+async function saveRepairItem(tabId, frameId, item) {
+  if (item.deviceKind === 'battery') {
+    return saveBatteryItem(tabId, frameId, item);
+  }
+  return saveServiceItem(tabId, frameId, item);
+}
+
 function clearStopFlags(key) {
   const wasCancel = cancelRequested.has(key);
   pauseRequested.delete(key);
@@ -230,7 +250,16 @@ function summarizeCheckpointForResponse(checkpoint, wasExplicitCancel = false) {
   for (const item of checkpoint.items) {
     if (item.status === 'saved' || item.status === 'verified' || item.status === 'restored') {
       applied.push(item.scannumber);
-      confirmedEntries.push({ scannumber: item.scannumber, before: item.priorValue, after: item.writeValue });
+      // deviceKind is only ever set on Repair/Fixed items (see
+      // saveRepairItem above) - harmless undefined for every other write
+      // path, carried through so a later repairUndo routes each item to
+      // the correct adapter path too.
+      confirmedEntries.push({
+        scannumber: item.scannumber,
+        before: item.priorValue,
+        after: item.writeValue,
+        deviceKind: item.deviceKind,
+      });
     } else if (item.status === 'failed') {
       failed.push({ scannumber: item.scannumber, error: item.error });
     }
@@ -711,7 +740,7 @@ async function handleRepairApply(tabId, items) {
       kind: 'repairApply',
       inspectionId,
       items,
-      saveItemFn: saveBatteryItem,
+      saveItemFn: saveRepairItem,
     });
 
     if (refusedAlreadyPaused) {
@@ -759,6 +788,7 @@ async function handleRepairUndo(tabId) {
       scannumber: e.scannumber,
       writeValue: e.before,
       priorValue: e.after,
+      deviceKind: e.deviceKind,
     }));
 
     const { checkpoint, wasExplicitCancel, refusedAlreadyPaused } = await runNewOperation({
@@ -767,7 +797,7 @@ async function handleRepairUndo(tabId) {
       kind: 'repairUndo',
       inspectionId,
       items,
-      saveItemFn: saveBatteryItem,
+      saveItemFn: saveRepairItem,
     });
 
     if (refusedAlreadyPaused) {
@@ -813,8 +843,8 @@ const SAVE_FNS = {
   serviceUndo: saveServiceItem,
   batteryApply: saveBatteryItem,
   batteryUndo: saveBatteryItem,
-  repairApply: saveBatteryItem,
-  repairUndo: saveBatteryItem,
+  repairApply: saveRepairItem,
+  repairUndo: saveRepairItem,
 };
 const UNDO_KEY_FNS = {
   serviceApply: undoStorageKey,

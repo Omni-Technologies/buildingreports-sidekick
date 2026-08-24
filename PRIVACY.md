@@ -61,14 +61,16 @@ scoped to the BuildingReports Device Editor page you already have open:
    Unlike the classification above, this reads only devices the report
    already shows as Failed, and every field it writes comes from either
    BuildingReports' own existing data or **text you type directly into
-   this extension's popup** (a technician/customer name and a company
-   name, plus an amperage value and a repair date, all for the Battery
-   rule specifically): those typed values are written into the Battery's
-   own Note/Comment/Solution/Service/Passed/Amps/Min Ah/Model Number
-   fields — the same fields listed above, still only through
-   BuildingReports' own Save button/save API, never sent anywhere else.
-   This action also writes Install Date, a field Battery Cleanup already
-   read to decide expiration but never wrote back until this action.
+   this extension's popup**. For a Battery specifically, that's a
+   technician/customer name, a company name, an amperage value, and a
+   repair date, written into the Battery's own Note/Comment/Solution/
+   Service/Passed/Amps/Min Ah/Model Number fields (also writing Install
+   Date, a field Battery Cleanup already read to decide expiration but
+   never wrote back until this action). For every other device type,
+   that's a single note you type, written into that device's own Note/
+   Comment/Solution/Service/Passed fields. Either way, these are the same
+   kind of field listed above, still only through BuildingReports' own
+   Save button/save API, never sent anywhere else.
 3. **A local Undo/checkpoint history** — stored only in
    `chrome.storage.local` (a storage area private to your browser
    profile, never synced to any account or server by this extension):

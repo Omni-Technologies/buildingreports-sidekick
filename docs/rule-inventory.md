@@ -67,13 +67,13 @@ dispatch: `src/cleanup/repair-engine.js`. Full rule reference:
 |---|---|---|---|
 | Scans only devices currently marked Failed (`passed === false`), in report order | Implemented | Yes | `repair-engine.js` `scanFailedDevices` |
 | Every Failed device gets an explicit "was this repaired?" question | Implemented | Yes | Sequential one-device-at-a-time wizard in the popup, never a bulk classify |
-| Device type with no rule yet, answered "yes" → flagged for manual review, no field change | Implemented | Unit only | No real Failed non-Battery device existed on the test report |
 | Battery: Amps asked (prefilled with current value); Rated Voltage never asked, kept as-is | Implemented | Yes | `repair-battery.js` `buildBatteryRepairChange` |
 | Battery: Post Test/Tested Ah reset to `0.00`; Min Ah/Model Number derived from the new Amps via the exact same formulas Battery Cleanup uses | Implemented | Yes | Never a second hand-rolled copy - reuses exported helpers from `rules/battery-cleanup.js` |
 | Battery: Passed checked, Comment/Solution cleared, Service → `Visual & Functional, Passed` | Implemented | Yes | |
 | Battery: Note gets a new `Battery Replaced By <name> With <company> - <M/D/YY>` line appended below whatever's already there, never overwritten | Implemented | Yes | Confirmed live preserving a real prior `Date Expired - Replace Battery` line |
 | Battery: Install Date is asked (date replaced/fixed) and **written** - a brand-new adapter capability | Implemented | Yes | Previously read-only everywhere in this codebase - see `adapter.js`'s `BATTERY_DATE_FIELD_MAP`/`parseLocalDateOnlyString`, `ADAPTER_VERSION = 7` |
-| Nothing written until "Apply Repairs" is clicked; own Undo history/checkpoint kinds (`repairApply`/`repairUndo`), independent of Battery Cleanup's | Implemented | Yes | Same paced write queue as every other write path |
+| Every other device type: generic fallback - typed Note (required), Passed checked, canonical Service text, Comment/Solution cleared | Implemented | Yes | `repair-generic.js` `buildGenericRepairChange` - deliberate placeholder until a real pattern is identified per device type (added 2026-08-24, explicitly requested); no more "flag for review only" dead end |
+| Nothing written until "Apply Repairs" is clicked; own Undo history/checkpoint kinds (`repairApply`/`repairUndo`), independent of Battery Cleanup's; a single run can mix Battery + generic items, routed per-item by `deviceKind` | Implemented | Yes | Same paced write queue as every other write path - `background.js` `saveRepairItem` |
 | Undo confirmation shows the real entry count before restoring | Implemented | Yes | `handleUndoStatus` extended to also report `repairEntries` |
 
 ## Shared infrastructure (not a "rule" but load-bearing for every rule above)

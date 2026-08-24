@@ -11,8 +11,8 @@ test('getRepairRuleKey is tolerant of case/whitespace, same as every other devic
   assert.equal(getRepairRuleKey('  battery  '), 'battery');
 });
 
-test('getRepairRuleKey returns null for a device type with no rule yet', () => {
-  assert.equal(getRepairRuleKey('Smoke Detector'), null);
+test('getRepairRuleKey falls back to "generic" for a device type with no specific rule yet', () => {
+  assert.equal(getRepairRuleKey('Smoke Detector'), 'generic');
 });
 
 test('scanFailedDevices only includes devices where passed is exactly false', () => {
@@ -35,14 +35,14 @@ test('scanFailedDevices preserves report order (does not reorder or sort)', () =
   assert.deepEqual(result.map((r) => r.scannumber), ['B', 'A']);
 });
 
-test('scanFailedDevices tags each failed device with its ruleKey (or null)', () => {
+test('scanFailedDevices tags each failed device with its ruleKey ("battery" or "generic")', () => {
   const records = [
     makeBatteryRecord({ scannumber: '1', passed: false }),
     makeRecord({ scannumber: '2', devicetype: 'Smoke Detector', passed: false }),
   ];
   const result = scanFailedDevices(records);
   assert.equal(result.find((r) => r.scannumber === '1').ruleKey, 'battery');
-  assert.equal(result.find((r) => r.scannumber === '2').ruleKey, null);
+  assert.equal(result.find((r) => r.scannumber === '2').ruleKey, 'generic');
 });
 
 test('scanFailedDevices carries the full record through for the popup to use', () => {

@@ -109,7 +109,7 @@
   </header>
 
   <section class="panel">
-    <div>Walks through devices currently marked Failed and asks whether each was repaired/replaced. Battery has an automated rule - other device types are flagged for manual review until their own rule is added.</div>
+    <div>Walks through devices currently marked Failed and asks whether each was repaired/replaced. Battery has its own form (Amps/date/tech/company) - every other device type gets a generic form (Passed, canonical Service text, cleared Comment/Solution, and a note you type) until a specific rule is added for it.</div>
   </section>
 
   <section class="panel actions">
@@ -156,15 +156,20 @@
         <button id="repairCancelDeviceBtn">Skip this device</button>
       </div>
     </div>
+    <div id="repairGenericForm" class="hidden">
+      <label for="repairNoteInput">Note</label>
+      <textarea id="repairNoteInput" rows="3"></textarea>
+      <div id="repairGenericFormErrors" class="error"></div>
+      <div class="actions" style="margin-top:6px;">
+        <button id="repairGenericSaveContinueBtn">Save &amp; Continue</button>
+        <button id="repairGenericCancelDeviceBtn">Skip this device</button>
+      </div>
+    </div>
   </section>
 
   <section id="repairSummary" class="panel hidden">
     <h2>Repair Summary</h2>
     <div id="repairSummaryText"></div>
-    <details id="repairReviewDetails">
-      <summary id="repairReviewSummary">Needs manual review (no rule yet)</summary>
-      <div id="repairReviewList"></div>
-    </details>
     <details id="repairPendingDetails">
       <summary id="repairPendingSummary">Ready to apply</summary>
       <div id="repairPendingList"></div>

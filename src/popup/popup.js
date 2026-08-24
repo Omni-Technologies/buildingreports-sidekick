@@ -1,4 +1,5 @@
 import { buildBatteryRepairChange } from '../cleanup/repair-battery.js';
+import { buildGenericRepairChange } from '../cleanup/repair-generic.js';
 
 const statusText = document.getElementById('statusText');
 const profileSelect = document.getElementById('profileSelect');
@@ -68,10 +69,13 @@ const repairCompanyInput = document.getElementById('repairCompanyInput');
 const repairFormErrors = document.getElementById('repairFormErrors');
 const repairSaveContinueBtn = document.getElementById('repairSaveContinueBtn');
 const repairCancelDeviceBtn = document.getElementById('repairCancelDeviceBtn');
+const repairGenericForm = document.getElementById('repairGenericForm');
+const repairNoteInput = document.getElementById('repairNoteInput');
+const repairGenericFormErrors = document.getElementById('repairGenericFormErrors');
+const repairGenericSaveContinueBtn = document.getElementById('repairGenericSaveContinueBtn');
+const repairGenericCancelDeviceBtn = document.getElementById('repairGenericCancelDeviceBtn');
 const repairSummarySection = document.getElementById('repairSummary');
 const repairSummaryText = document.getElementById('repairSummaryText');
-const repairReviewSummary = document.getElementById('repairReviewSummary');
-const repairReviewList = document.getElementById('repairReviewList');
 const repairPendingSummary = document.getElementById('repairPendingSummary');
 const repairPendingList = document.getElementById('repairPendingList');
 const repairApplyBtn = document.getElementById('repairApplyBtn');
@@ -87,8 +91,11 @@ let busy = false;
 // Repair/Fixed wizard state - see the repairStartBtn handler onward.
 let repairQueue = []; // failedDevices from the 'repairScan' message
 let repairIndex = 0;
-let repairPendingItems = []; // { scannumber, devicetype, writeValue, priorValue, summary } ready to apply
-let repairReviewOnlyDevices = []; // { scannumber, devicetype, service } - answered "yes", no rule exists yet
+// { scannumber, devicetype, deviceKind, writeValue, priorValue, summary } ready to apply.
+// deviceKind ('battery' | 'generic') tells background.js's saveRepairItem
+// which adapter write path this item needs - see repairYesBtn's form
+// handlers below and background.js's saveRepairItem.
+let repairPendingItems = [];
 
 const PROFILE_LABELS = {
   annual: 'Annual',
@@ -1025,12 +1032,31 @@ function showRepairDevice() {
   repairSummarySection.classList.add('hidden');
   repairWizardSection.classList.remove('hidden');
   repairBatteryForm.classList.add('hidden');
+  repairGenericForm.classList.add('hidden');
   repairYesNoBar.classList.remove('hidden');
   repairFormErrors.textContent = '';
+  repairGenericFormErrors.textContent = '';
   repairWizardProgress.textContent = `Device ${repairIndex + 1} of ${repairQueue.length}`;
   repairDeviceInfo.innerHTML =
     `<strong>#${escapeHtml(device.scannumber)}</strong> (${escapeHtml(device.devicetype)})<br/>` +
     `Service: ${escapeHtml(device.service || '(blank)')}`;
+}
+
+// Renders one "ready to apply" list entry - Battery's summary has extra
+// fields (Amps/Min Ah/Model Number) the generic rule's doesn't, so this
+// branches on deviceKind rather than assuming one shape.
+function renderRepairPendingItem(it) {
+  const s = it.summary;
+  const extra =
+    it.deviceKind === 'battery'
+      ? `Amps: ${escapeHtml(s.amps)} &middot; Min Ah: ${escapeHtml(s.minAh)}` +
+        (s.modelNumber ? ` &middot; Model Number: ${escapeHtml(s.modelNumber)}` : '') +
+        '<br/>'
+      : '';
+  return (
+    `<div class="change-item"><strong>#${escapeHtml(it.scannumber)}</strong> (${escapeHtml(it.devicetype)})<br/>` +
+    `${extra}${escapeHtml(s.noteLine)}</div>`
+  );
 }
 
 function finishRepairWalkthrough() {
@@ -1038,45 +1064,22 @@ function finishRepairWalkthrough() {
   repairSummarySection.classList.remove('hidden');
   const remaining = Math.max(repairQueue.length - repairIndex, 0);
 
-  const lines = [
-    `Repairs ready to apply: ${repairPendingItems.length}`,
-    `Devices needing manual review (no rule yet): ${repairReviewOnlyDevices.length}`,
-  ];
+  const lines = [`Repairs ready to apply: ${repairPendingItems.length}`];
   if (remaining > 0) {
     lines.push(`${remaining} device(s) not yet asked about (walkthrough stopped early) - click "Start Repair Walkthrough" again to ask about the rest.`);
   }
   repairSummaryText.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
 
-  repairReviewSummary.textContent = `Needs manual review (no rule yet) (${repairReviewOnlyDevices.length})`;
-  repairReviewList.innerHTML = repairReviewOnlyDevices.length
-    ? repairReviewOnlyDevices
-        .map(
-          (d) =>
-            `<div class="change-item"><strong>#${escapeHtml(d.scannumber)}</strong> (${escapeHtml(d.devicetype)})<br/>Service: ${escapeHtml(d.service || '(blank)')}</div>`
-        )
-        .join('')
-    : '<div>None.</div>';
-
   repairPendingSummary.textContent = `Ready to apply (${repairPendingItems.length})`;
   repairPendingList.innerHTML = repairPendingItems.length
-    ? repairPendingItems
-        .map((it) => {
-          const s = it.summary;
-          return (
-            `<div class="change-item"><strong>#${escapeHtml(it.scannumber)}</strong> (${escapeHtml(it.devicetype)})<br/>` +
-            `Amps: ${escapeHtml(s.amps)} &middot; Min Ah: ${escapeHtml(s.minAh)}` +
-            (s.modelNumber ? ` &middot; Model Number: ${escapeHtml(s.modelNumber)}` : '') +
-            `<br/>${escapeHtml(s.noteLine)}</div>`
-          );
-        })
-        .join('')
+    ? repairPendingItems.map(renderRepairPendingItem).join('')
     : '<div>None.</div>';
 
   repairApplyBtn.disabled = repairPendingItems.length === 0;
 }
 
 repairStartBtn.addEventListener('click', async () => {
-  if (repairPendingItems.length > 0 || repairReviewOnlyDevices.length > 0) {
+  if (repairPendingItems.length > 0) {
     const confirmed = await askConfirm(
       'Starting a new walkthrough discards the repairs collected so far (none of them have been written yet). Continue?',
       'Start Over'
@@ -1099,13 +1102,10 @@ repairStartBtn.addEventListener('click', async () => {
     repairQueue = result.failedDevices || [];
     repairIndex = 0;
     repairPendingItems = [];
-    repairReviewOnlyDevices = [];
     if (repairQueue.length === 0) {
       repairWizardSection.classList.add('hidden');
       repairSummarySection.classList.remove('hidden');
       repairSummaryText.innerHTML = '<div>No devices are currently marked Failed - nothing to walk through.</div>';
-      repairReviewSummary.textContent = 'Needs manual review (no rule yet) (0)';
-      repairReviewList.innerHTML = '<div>None.</div>';
       repairPendingSummary.textContent = 'Ready to apply (0)';
       repairPendingList.innerHTML = '<div>None.</div>';
       repairApplyBtn.disabled = true;
@@ -1118,10 +1118,14 @@ repairStartBtn.addEventListener('click', async () => {
   setBusy(false);
 });
 
+// Every device type gets a form on "Yes" now - Battery gets its own
+// (Amps/date/tech/company); everything else gets the generic one
+// (2026-08-24, explicitly requested: a placeholder until a real pattern
+// is identified for a specific device type - see repair-generic.js).
 repairYesBtn.addEventListener('click', () => {
   const device = repairQueue[repairIndex];
+  repairYesNoBar.classList.add('hidden');
   if (device.ruleKey === 'battery') {
-    repairYesNoBar.classList.add('hidden');
     repairBatteryForm.classList.remove('hidden');
     repairFormErrors.textContent = '';
     repairAmpsInput.value = device.record.amps || '';
@@ -1130,11 +1134,10 @@ repairYesBtn.addEventListener('click', () => {
     repairCompanyInput.value = '';
     repairAmpsInput.focus();
   } else {
-    // No rule for this device type yet - flag for manual review and move
-    // on, per docs/repair-fixed-rules.md ("no-rule-yet devices").
-    repairReviewOnlyDevices.push({ scannumber: device.scannumber, devicetype: device.devicetype, service: device.service });
-    repairIndex += 1;
-    showRepairDevice();
+    repairGenericForm.classList.remove('hidden');
+    repairGenericFormErrors.textContent = '';
+    repairNoteInput.value = '';
+    repairNoteInput.focus();
   }
 });
 
@@ -1163,6 +1166,26 @@ repairSaveContinueBtn.addEventListener('click', () => {
   repairPendingItems.push({
     scannumber: device.scannumber,
     devicetype: device.devicetype,
+    deviceKind: 'battery',
+    writeValue: result.writeValue,
+    priorValue: result.priorValue,
+    summary: result.summary,
+  });
+  repairIndex += 1;
+  showRepairDevice();
+});
+
+repairGenericSaveContinueBtn.addEventListener('click', () => {
+  const device = repairQueue[repairIndex];
+  const result = buildGenericRepairChange(device.record, { note: repairNoteInput.value });
+  if (!result.ok) {
+    repairGenericFormErrors.innerHTML = result.errors.map((e) => `<div>${escapeHtml(e)}</div>`).join('');
+    return;
+  }
+  repairPendingItems.push({
+    scannumber: device.scannumber,
+    devicetype: device.devicetype,
+    deviceKind: 'generic',
     writeValue: result.writeValue,
     priorValue: result.priorValue,
     summary: result.summary,
@@ -1177,12 +1200,15 @@ repairCancelDeviceBtn.addEventListener('click', () => {
   repairIndex += 1;
   showRepairDevice();
 });
+repairGenericCancelDeviceBtn.addEventListener('click', () => {
+  repairIndex += 1;
+  showRepairDevice();
+});
 
 repairCancelAllBtn.addEventListener('click', () => {
   repairQueue = [];
   repairIndex = 0;
   repairPendingItems = [];
-  repairReviewOnlyDevices = [];
   repairSummarySection.classList.add('hidden');
   statusText.textContent = 'Repair walkthrough discarded - nothing was written.';
   statusText.className = 'ok';
@@ -1202,7 +1228,12 @@ repairApplyBtn.addEventListener('click', async () => {
   diagnostics.classList.add('hidden');
   showRepairProgress(`Applying ${n} repair(s) and verifying saves...`, 'repairApply');
   try {
-    const items = repairPendingItems.map(({ scannumber, writeValue, priorValue }) => ({ scannumber, writeValue, priorValue }));
+    const items = repairPendingItems.map(({ scannumber, writeValue, priorValue, deviceKind }) => ({
+      scannumber,
+      writeValue,
+      priorValue,
+      deviceKind,
+    }));
     const result = await sendMessage({ type: 'repairApply', items });
     hideRepairProgress();
     if (!result || !result.ok) {
@@ -1255,7 +1286,7 @@ repairUndoBtn.addEventListener('click', async () => {
     return;
   }
   const confirmed = await askConfirm(
-    `Undo the last Repair run on this report? This restores ${repairCount} Battery field(s) to their prior values.`,
+    `Undo the last Repair run on this report? This restores ${repairCount} device(s) to their prior values.`,
     'Undo'
   );
   if (!confirmed) return;
