@@ -20,6 +20,38 @@ When writing an entry, say what changed from the user's point of view:
 ## [Unreleased]
 - (add notes here before running a release)
 
+## [0.1.5] - 2026-08-24
+- **Added**: A new **Repaired / Fixed** action - walks only the devices
+  the currently open report shows as Failed, one at a time, and asks you
+  to confirm whether each was actually repaired or replaced before
+  changing anything. For a Battery you confirm was replaced, a short form
+  asks for the new amperage (if it changed), the date it was
+  replaced/fixed, and who did the work - Post Test/Tested Ah reset,
+  Min Ah/Model Number recalculated, Passed/Service/Comment/Solution set,
+  and a dated note appended below any existing notes, all automatically.
+  Every other device type gets a simpler form (just a note you type) that
+  marks the device Passed with canonical Service text - a placeholder
+  until a dedicated rule is built for that device type. Nothing is
+  written until you review the full list and click Apply Repairs; a
+  separate Undo Last Repair button reverses it.
+- **Added**: Blank Battery Post Test readings are now filled in with a
+  generated value between 12.00 and 13.00 (cosmetic only - never affects
+  Pass/Fail).
+- **Added**: A Battery showing 0.00 Post Test and 0.00 Tested Ah together,
+  with no "flat" reading noted anywhere, is now treated as an
+  already-replaced battery awaiting its first real test - it passes
+  instead of being marked Failed. A date-expiration failure still applies
+  independently.
+- **Changed**: Battery Cleanup no longer has its own Preview/Apply/Undo
+  buttons - Service Cleanup's three buttons now run both together on
+  every click, while staying fully independent underneath (separate
+  history, separate Undo).
+- **Changed**: The Undo confirmation now shows exactly how many Service
+  and Battery fields will be restored before you click Undo.
+- **Fixed**: Communicator/Communication Line/Monitoring entries written
+  with a 24-hour-clock time (e.g. "15:14:26 pm") are now recognized and
+  converted correctly instead of being left for manual review.
+
 ## [0.1.4] - 2026-08-06
 - **Added**: Under the Annual profile, a Heat Detector already showing
   "Visual, Passed/Failed" (no "& Functional") is preserved as a deliberate
