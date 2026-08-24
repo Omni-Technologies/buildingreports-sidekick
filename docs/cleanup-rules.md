@@ -241,6 +241,16 @@ year). No time anywhere, or no date anywhere including the Inspection Date
 fallback, -> `needsReview`. The normalized time is also mirrored into the
 Restore Time attribute field.
 
+**Also recognizes a 24-hour-clock hour (added 2026-08-24, confirmed live
+against a real reported case):** `extractTime` in `communications-parser.js`
+tolerates an optional `:SS` seconds group and an hour of `00` or `13`-`23`,
+converting it to 12-hour form regardless of whether a (possibly redundant
+or mismatched) am/pm marker follows - e.g. `15:14:26 pm` and a bare `15:14`
+both normalize to `3:14 PM`, `00:05` normalizes to `12:05 AM`. An ordinary
+`1`-`12` hour still requires an explicit am/pm marker nearby and is never
+guessed, exactly as before. This applies identically to Communication
+Line and Monitoring below, since all three share `extractTime`.
+
 ### Communication Line
 
 Always `Yes, <time>`. Inspectors sometimes type `Restored @ <time>` (the
@@ -372,4 +382,9 @@ it, and a fresh Preview showed it `alreadyCorrect`.
 ## Adding to Battery Cleanup instead
 
 See `docs/battery-cleanup-rules.md` - Battery Cleanup has no Inspection
-Profile of its own and isn't affected by anything in this file.
+Profile of its own and isn't affected by anything in this file. **Since
+2026-08-24, the popup's Preview/Apply/Undo buttons trigger both actions
+together** (no separate Battery buttons anymore - see `docs/architecture.md`
+"UI note"), but they remain fully independent under the hood: separate
+checkpoint kinds, separate Undo history, no shared state with anything in
+this file.

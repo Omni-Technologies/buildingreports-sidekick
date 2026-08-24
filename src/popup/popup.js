@@ -1,3 +1,5 @@
+import { buildBatteryRepairChange } from '../cleanup/repair-battery.js';
+
 const statusText = document.getElementById('statusText');
 const profileSelect = document.getElementById('profileSelect');
 const profileActive = document.getElementById('profileActive');
@@ -41,10 +43,52 @@ const batteryDiscardBtn = document.getElementById('batteryDiscardBtn');
 const batteryPauseBtn = document.getElementById('batteryPauseBtn');
 const batteryCancelRemainingBtn = document.getElementById('batteryCancelRemainingBtn');
 
+const repairStartBtn = document.getElementById('repairStartBtn');
+const repairUndoBtn = document.getElementById('repairUndoBtn');
+const repairResumeBar = document.getElementById('repairResumeBar');
+const repairResumeText = document.getElementById('repairResumeText');
+const repairResumeBtn = document.getElementById('repairResumeBtn');
+const repairDiscardBtn = document.getElementById('repairDiscardBtn');
+const repairProgressSection = document.getElementById('repairProgress');
+const repairProgressText = document.getElementById('repairProgressText');
+const repairPauseBtn = document.getElementById('repairPauseBtn');
+const repairCancelRemainingBtn = document.getElementById('repairCancelRemainingBtn');
+const repairWizardSection = document.getElementById('repairWizard');
+const repairWizardProgress = document.getElementById('repairWizardProgress');
+const repairDeviceInfo = document.getElementById('repairDeviceInfo');
+const repairYesNoBar = document.getElementById('repairYesNoBar');
+const repairYesBtn = document.getElementById('repairYesBtn');
+const repairNoBtn = document.getElementById('repairNoBtn');
+const repairStopBtn = document.getElementById('repairStopBtn');
+const repairBatteryForm = document.getElementById('repairBatteryForm');
+const repairAmpsInput = document.getElementById('repairAmpsInput');
+const repairDateInput = document.getElementById('repairDateInput');
+const repairTechInput = document.getElementById('repairTechInput');
+const repairCompanyInput = document.getElementById('repairCompanyInput');
+const repairFormErrors = document.getElementById('repairFormErrors');
+const repairSaveContinueBtn = document.getElementById('repairSaveContinueBtn');
+const repairCancelDeviceBtn = document.getElementById('repairCancelDeviceBtn');
+const repairSummarySection = document.getElementById('repairSummary');
+const repairSummaryText = document.getElementById('repairSummaryText');
+const repairReviewSummary = document.getElementById('repairReviewSummary');
+const repairReviewList = document.getElementById('repairReviewList');
+const repairPendingSummary = document.getElementById('repairPendingSummary');
+const repairPendingList = document.getElementById('repairPendingList');
+const repairApplyBtn = document.getElementById('repairApplyBtn');
+const repairCancelAllBtn = document.getElementById('repairCancelAllBtn');
+const repairResultSection = document.getElementById('repairResult');
+const repairResultText = document.getElementById('repairResultText');
+
 let activeTabId = null;
 let lastPreview = null; // { meta, summary }
 let lastBatteryPreview = null; // { meta, summary }
 let busy = false;
+
+// Repair/Fixed wizard state - see the repairStartBtn handler onward.
+let repairQueue = []; // failedDevices from the 'repairScan' message
+let repairIndex = 0;
+let repairPendingItems = []; // { scannumber, devicetype, writeValue, priorValue, summary } ready to apply
+let repairReviewOnlyDevices = []; // { scannumber, devicetype, service } - answered "yes", no rule exists yet
 
 const PROFILE_LABELS = {
   annual: 'Annual',
@@ -60,10 +104,13 @@ const OPERATION_KIND_LABELS = {
   serviceUndo: 'Service Cleanup Undo',
   batteryApply: 'Battery Cleanup Apply',
   batteryUndo: 'Battery Cleanup Undo',
+  repairApply: 'Repair/Fixed Apply',
+  repairUndo: 'Repair/Fixed Undo',
 };
 
 const SERVICE_KINDS = ['serviceApply', 'serviceUndo'];
 const BATTERY_KINDS = ['batteryApply', 'batteryUndo'];
+const REPAIR_KINDS = ['repairApply', 'repairUndo'];
 
 // Large-operation notice threshold for Preview - see docs/architecture.md:
 // Preview should warn before a big paced run, not just silently take a
@@ -171,6 +218,8 @@ function setBusy(isBusy) {
   previewBtn.disabled = isBusy || !activeTabId;
   applyBtn.disabled = isBusy || !(hasServicePending() || hasBatteryPending());
   undoBtn.disabled = isBusy || !activeTabId;
+  repairStartBtn.disabled = isBusy || !activeTabId;
+  repairUndoBtn.disabled = isBusy || !activeTabId;
 }
 
 // Turns a background.js `progress` summary (see write-queue.js's
@@ -265,6 +314,32 @@ function hideBatteryProgress() {
   currentBatteryOperationKind = null;
 }
 
+let stopRepairProgressPolling = null;
+let currentRepairOperationKind = null;
+
+function showRepairProgress(text, kind) {
+  repairProgressSection.classList.remove('hidden');
+  repairProgressText.textContent = text;
+  currentRepairOperationKind = kind || null;
+  repairPauseBtn.classList.toggle('hidden', !kind);
+  repairCancelRemainingBtn.classList.toggle('hidden', !kind);
+  if (kind) {
+    if (stopRepairProgressPolling) stopRepairProgressPolling();
+    stopRepairProgressPolling = startProgressPolling(kind, (t) => {
+      repairProgressText.textContent = t;
+    });
+  }
+}
+
+function hideRepairProgress() {
+  repairProgressSection.classList.add('hidden');
+  if (stopRepairProgressPolling) {
+    stopRepairProgressPolling();
+    stopRepairProgressPolling = null;
+  }
+  currentRepairOperationKind = null;
+}
+
 pauseBtn.addEventListener('click', () => {
   if (currentServiceOperationKind) sendMessage({ type: 'pauseOperation', kind: currentServiceOperationKind });
 });
@@ -277,24 +352,32 @@ batteryPauseBtn.addEventListener('click', () => {
 batteryCancelRemainingBtn.addEventListener('click', () => {
   if (currentBatteryOperationKind) sendMessage({ type: 'cancelOperation', kind: currentBatteryOperationKind });
 });
+repairPauseBtn.addEventListener('click', () => {
+  if (currentRepairOperationKind) sendMessage({ type: 'pauseOperation', kind: currentRepairOperationKind });
+});
+repairCancelRemainingBtn.addEventListener('click', () => {
+  if (currentRepairOperationKind) sendMessage({ type: 'cancelOperation', kind: currentRepairOperationKind });
+});
 
-// Checks all four operation kinds for a paused/interrupted run on this
+// Checks all six operation kinds for a paused/interrupted run on this
 // report (e.g. the popup was closed mid-Apply, or a rate-limit give-up
-// happened) and shows the appropriate Resume banner - Service and Battery
-// each have their own bar since they're fully independent actions.
+// happened) and shows the appropriate Resume banner - Service, Battery, and
+// Repair/Fixed each have their own bar since they're fully independent
+// actions.
+const RESUME_GROUPS = [
+  { kinds: SERVICE_KINDS, bar: resumeBar, textEl: resumeText },
+  { kinds: BATTERY_KINDS, bar: batteryResumeBar, textEl: batteryResumeText },
+  { kinds: REPAIR_KINDS, bar: repairResumeBar, textEl: repairResumeText },
+];
+
 async function checkForResumableOperations() {
-  for (const kind of SERVICE_KINDS) {
-    const status = await sendMessage({ type: 'operationStatus', kind });
-    if (status && status.active) {
-      showResumeBanner(resumeBar, resumeText, kind, status.progress);
-      break;
-    }
-  }
-  for (const kind of BATTERY_KINDS) {
-    const status = await sendMessage({ type: 'operationStatus', kind });
-    if (status && status.active) {
-      showResumeBanner(batteryResumeBar, batteryResumeText, kind, status.progress);
-      break;
+  for (const group of RESUME_GROUPS) {
+    for (const kind of group.kinds) {
+      const status = await sendMessage({ type: 'operationStatus', kind });
+      if (status && status.active) {
+        showResumeBanner(group.bar, group.textEl, kind, status.progress);
+        break;
+      }
     }
   }
 }
@@ -333,6 +416,8 @@ async function init() {
     setBusy(false);
     previewBtn.disabled = true;
     undoBtn.disabled = true;
+    repairStartBtn.disabled = true;
+    repairUndoBtn.disabled = true;
     return;
   }
   const modifyNote = result.canModify ? '' : ' (no modify permission detected)';
@@ -406,6 +491,26 @@ batteryResumeBtn.addEventListener('click', () =>
 batteryDiscardBtn.addEventListener('click', async () => {
   const kind = batteryResumeBar.dataset.kind;
   batteryResumeBar.classList.add('hidden');
+  await sendMessage({ type: 'discardOperation', kind });
+});
+
+repairResumeBtn.addEventListener('click', () =>
+  runResumedOperation(repairResumeBar, showRepairProgress, hideRepairProgress, repairResultSection, (result) => {
+    repairResultSection.classList.remove('hidden');
+    repairResultText.innerHTML = [
+      `Applied/Restored: ${result.applied.length}`,
+      `Failed: ${result.failed.length}`,
+      result.gaveUp ? 'Paused again - BuildingReports is still limiting requests. Resume again later.' : '',
+    ]
+      .filter(Boolean)
+      .map((l) => `<div>${l}</div>`)
+      .join('');
+  })
+);
+
+repairDiscardBtn.addEventListener('click', async () => {
+  const kind = repairResumeBar.dataset.kind;
+  repairResumeBar.classList.add('hidden');
   await sendMessage({ type: 'discardOperation', kind });
 });
 
@@ -877,5 +982,320 @@ function renderUndoResultBlock(sectionEl, textEl, reviewListEl, examplesListEl, 
   examplesListEl.innerHTML = '';
   if (result.failed.length) showDiagnostics(result.failed);
 }
+
+// ============================================================
+// Repaired / Fixed - a human-driven, device-by-device walkthrough.
+// Architecturally unlike Preview/Apply/Undo above: nothing here is
+// auto-classified. Only devices currently marked Failed are walked (see
+// repair-engine.js's scanFailedDevices, run in background.js), one at a
+// time, in report order. Every device gets a "was this repaired?"
+// question; a device type with a rule (only Battery for now - see
+// repair-battery.js) gets a short form on "yes", built into a write item
+// immediately via buildBatteryRepairChange (imported above - pure logic,
+// no chrome.* dependency, safe to run right here in the popup). A device
+// type with no rule yet is flagged for manual review instead, per
+// docs/repair-fixed-rules.md. Nothing is written to BuildingReports until
+// "Apply Repairs" is clicked at the end, going through the same paced
+// write queue/checkpoint/Undo machinery as every other write path
+// (checkpoint kinds 'repairApply'/'repairUndo', own Undo history, kept
+// separate from Battery Cleanup's even though both can touch the same
+// Battery fields - see background.js).
+// ============================================================
+
+// Local "today" as a "YYYY-MM-DD" string, matching this extension's own
+// date convention (see adapter.js's toLocalDateOnlyString) - built from
+// local wall-clock components, never toISOString() (which is UTC and can
+// shift the calendar day near local midnight). Only used as an editable
+// default for the Date input - never invented data, just a starting point
+// most repairs are logged the same day.
+function todayLocalIsoDate() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function showRepairDevice() {
+  if (repairIndex >= repairQueue.length) {
+    finishRepairWalkthrough();
+    return;
+  }
+  const device = repairQueue[repairIndex];
+  repairSummarySection.classList.add('hidden');
+  repairWizardSection.classList.remove('hidden');
+  repairBatteryForm.classList.add('hidden');
+  repairYesNoBar.classList.remove('hidden');
+  repairFormErrors.textContent = '';
+  repairWizardProgress.textContent = `Device ${repairIndex + 1} of ${repairQueue.length}`;
+  repairDeviceInfo.innerHTML =
+    `<strong>#${escapeHtml(device.scannumber)}</strong> (${escapeHtml(device.devicetype)})<br/>` +
+    `Service: ${escapeHtml(device.service || '(blank)')}`;
+}
+
+function finishRepairWalkthrough() {
+  repairWizardSection.classList.add('hidden');
+  repairSummarySection.classList.remove('hidden');
+  const remaining = Math.max(repairQueue.length - repairIndex, 0);
+
+  const lines = [
+    `Repairs ready to apply: ${repairPendingItems.length}`,
+    `Devices needing manual review (no rule yet): ${repairReviewOnlyDevices.length}`,
+  ];
+  if (remaining > 0) {
+    lines.push(`${remaining} device(s) not yet asked about (walkthrough stopped early) - click "Start Repair Walkthrough" again to ask about the rest.`);
+  }
+  repairSummaryText.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+
+  repairReviewSummary.textContent = `Needs manual review (no rule yet) (${repairReviewOnlyDevices.length})`;
+  repairReviewList.innerHTML = repairReviewOnlyDevices.length
+    ? repairReviewOnlyDevices
+        .map(
+          (d) =>
+            `<div class="change-item"><strong>#${escapeHtml(d.scannumber)}</strong> (${escapeHtml(d.devicetype)})<br/>Service: ${escapeHtml(d.service || '(blank)')}</div>`
+        )
+        .join('')
+    : '<div>None.</div>';
+
+  repairPendingSummary.textContent = `Ready to apply (${repairPendingItems.length})`;
+  repairPendingList.innerHTML = repairPendingItems.length
+    ? repairPendingItems
+        .map((it) => {
+          const s = it.summary;
+          return (
+            `<div class="change-item"><strong>#${escapeHtml(it.scannumber)}</strong> (${escapeHtml(it.devicetype)})<br/>` +
+            `Amps: ${escapeHtml(s.amps)} &middot; Min Ah: ${escapeHtml(s.minAh)}` +
+            (s.modelNumber ? ` &middot; Model Number: ${escapeHtml(s.modelNumber)}` : '') +
+            `<br/>${escapeHtml(s.noteLine)}</div>`
+          );
+        })
+        .join('')
+    : '<div>None.</div>';
+
+  repairApplyBtn.disabled = repairPendingItems.length === 0;
+}
+
+repairStartBtn.addEventListener('click', async () => {
+  if (repairPendingItems.length > 0 || repairReviewOnlyDevices.length > 0) {
+    const confirmed = await askConfirm(
+      'Starting a new walkthrough discards the repairs collected so far (none of them have been written yet). Continue?',
+      'Start Over'
+    );
+    if (!confirmed) return;
+  }
+
+  setBusy(true);
+  diagnostics.classList.add('hidden');
+  repairResultSection.classList.add('hidden');
+  repairSummarySection.classList.add('hidden');
+  try {
+    const result = await sendMessage({ type: 'repairScan' });
+    if (!result || !result.found) {
+      statusText.textContent = 'Report no longer found on this tab.';
+      statusText.className = 'error';
+      setBusy(false);
+      return;
+    }
+    repairQueue = result.failedDevices || [];
+    repairIndex = 0;
+    repairPendingItems = [];
+    repairReviewOnlyDevices = [];
+    if (repairQueue.length === 0) {
+      repairWizardSection.classList.add('hidden');
+      repairSummarySection.classList.remove('hidden');
+      repairSummaryText.innerHTML = '<div>No devices are currently marked Failed - nothing to walk through.</div>';
+      repairReviewSummary.textContent = 'Needs manual review (no rule yet) (0)';
+      repairReviewList.innerHTML = '<div>None.</div>';
+      repairPendingSummary.textContent = 'Ready to apply (0)';
+      repairPendingList.innerHTML = '<div>None.</div>';
+      repairApplyBtn.disabled = true;
+    } else {
+      showRepairDevice();
+    }
+  } catch (err) {
+    showDiagnostics(String(err));
+  }
+  setBusy(false);
+});
+
+repairYesBtn.addEventListener('click', () => {
+  const device = repairQueue[repairIndex];
+  if (device.ruleKey === 'battery') {
+    repairYesNoBar.classList.add('hidden');
+    repairBatteryForm.classList.remove('hidden');
+    repairFormErrors.textContent = '';
+    repairAmpsInput.value = device.record.amps || '';
+    repairDateInput.value = todayLocalIsoDate();
+    repairTechInput.value = '';
+    repairCompanyInput.value = '';
+    repairAmpsInput.focus();
+  } else {
+    // No rule for this device type yet - flag for manual review and move
+    // on, per docs/repair-fixed-rules.md ("no-rule-yet devices").
+    repairReviewOnlyDevices.push({ scannumber: device.scannumber, devicetype: device.devicetype, service: device.service });
+    repairIndex += 1;
+    showRepairDevice();
+  }
+});
+
+repairNoBtn.addEventListener('click', () => {
+  repairIndex += 1;
+  showRepairDevice();
+});
+
+repairStopBtn.addEventListener('click', () => {
+  finishRepairWalkthrough();
+});
+
+repairSaveContinueBtn.addEventListener('click', () => {
+  const device = repairQueue[repairIndex];
+  const input = {
+    amps: repairAmpsInput.value,
+    installDate: repairDateInput.value,
+    tech: repairTechInput.value,
+    company: repairCompanyInput.value,
+  };
+  const result = buildBatteryRepairChange(device.record, input);
+  if (!result.ok) {
+    repairFormErrors.innerHTML = result.errors.map((e) => `<div>${escapeHtml(e)}</div>`).join('');
+    return;
+  }
+  repairPendingItems.push({
+    scannumber: device.scannumber,
+    devicetype: device.devicetype,
+    writeValue: result.writeValue,
+    priorValue: result.priorValue,
+    summary: result.summary,
+  });
+  repairIndex += 1;
+  showRepairDevice();
+});
+
+// Backs out of this device's form without recording anything - same as
+// answering "No" to the original Yes/No question.
+repairCancelDeviceBtn.addEventListener('click', () => {
+  repairIndex += 1;
+  showRepairDevice();
+});
+
+repairCancelAllBtn.addEventListener('click', () => {
+  repairQueue = [];
+  repairIndex = 0;
+  repairPendingItems = [];
+  repairReviewOnlyDevices = [];
+  repairSummarySection.classList.add('hidden');
+  statusText.textContent = 'Repair walkthrough discarded - nothing was written.';
+  statusText.className = 'ok';
+});
+
+repairApplyBtn.addEventListener('click', async () => {
+  if (repairPendingItems.length === 0) return;
+  const n = repairPendingItems.length;
+  const pacedNote =
+    n > LARGE_OPERATION_THRESHOLD
+      ? ' BuildingReports saves each device separately, so this will run through a paced queue (one at a time) and may take a while.'
+      : '';
+  const confirmed = await askConfirm(`Apply ${n} repair(s) to BuildingReports?${pacedNote}`, 'Apply');
+  if (!confirmed) return;
+
+  setBusy(true);
+  diagnostics.classList.add('hidden');
+  showRepairProgress(`Applying ${n} repair(s) and verifying saves...`, 'repairApply');
+  try {
+    const items = repairPendingItems.map(({ scannumber, writeValue, priorValue }) => ({ scannumber, writeValue, priorValue }));
+    const result = await sendMessage({ type: 'repairApply', items });
+    hideRepairProgress();
+    if (!result || !result.ok) {
+      if (isAlreadyPausedError(result)) {
+        await checkForResumableOperations();
+        statusText.textContent = 'A previous run is still paused - use Resume or Cancel Remaining above before starting a new one.';
+      } else {
+        statusText.textContent = `Repair Apply failed: ${(result && result.error) || 'unknown error'}`;
+      }
+      statusText.className = 'error';
+      showDiagnostics(result);
+      setBusy(false);
+      return;
+    }
+    repairResultSection.classList.remove('hidden');
+    const lines = [
+      `Saved: ${result.applied.length}`,
+      `Save failures: ${result.failed.length}`,
+      result.undoAvailable ? 'Undo is available for this run.' : 'Nothing to undo (no changes were saved).',
+    ];
+    if (result.gaveUp) {
+      lines.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue.');
+    } else if (result.cancelled) {
+      lines.push('Cancelled - remaining changes were not applied. Already-saved changes remain and are covered by Undo.');
+    }
+    repairResultText.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+    if (result.failed.length) showDiagnostics(result.failed);
+    repairPendingItems = [];
+    repairApplyBtn.disabled = true;
+  } catch (err) {
+    hideRepairProgress();
+    showDiagnostics(String(err));
+  }
+  setBusy(false);
+});
+
+repairUndoBtn.addEventListener('click', async () => {
+  setBusy(true);
+  const status = await sendMessage({ type: 'undoStatus' });
+  setBusy(false);
+  if (!status || !status.found) {
+    statusText.textContent = 'Report no longer found on this tab.';
+    statusText.className = 'error';
+    return;
+  }
+  const repairCount = status.repairEntries || 0;
+  if (repairCount === 0) {
+    statusText.textContent = 'Nothing to undo.';
+    statusText.className = 'ok';
+    return;
+  }
+  const confirmed = await askConfirm(
+    `Undo the last Repair run on this report? This restores ${repairCount} Battery field(s) to their prior values.`,
+    'Undo'
+  );
+  if (!confirmed) return;
+
+  setBusy(true);
+  diagnostics.classList.add('hidden');
+  showRepairProgress('Restoring previous values...', 'repairUndo');
+  try {
+    const result = await sendMessage({ type: 'repairUndo' });
+    hideRepairProgress();
+    if (!result || !result.ok) {
+      if (isAlreadyPausedError(result)) {
+        await checkForResumableOperations();
+        statusText.textContent = 'A previous run is still paused - use Resume or Cancel Remaining above before starting a new one.';
+        statusText.className = 'error';
+      } else if (result && result.error !== 'nothing-to-undo') {
+        statusText.textContent = `Repair Undo: ${(result && result.error) || 'unknown error'}`;
+        statusText.className = 'error';
+      }
+      setBusy(false);
+      return;
+    }
+    repairResultSection.classList.remove('hidden');
+    const lines = [
+      `Restored: ${result.restored.length}`,
+      `Failed: ${result.failed.length}`,
+      `Total tracked: ${result.total}`,
+    ];
+    if (result.gaveUp) {
+      lines.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue undoing.');
+    } else if (result.cancelled) {
+      lines.push('Cancelled - remaining entries were left tracked for a later Undo.');
+    }
+    repairResultText.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+    if (result.failed.length) showDiagnostics(result.failed);
+  } catch (err) {
+    hideRepairProgress();
+    showDiagnostics(String(err));
+  }
+  setBusy(false);
+});
 
 init();

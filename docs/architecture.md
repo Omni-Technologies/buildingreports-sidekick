@@ -28,7 +28,9 @@ cleanup/engine.js  →  cleanup/classify.js  →  cleanup/{device-type-matcher,o
 
 cleanup/battery-engine.js  →  cleanup/rules/battery-cleanup.js
 
-cleanup/write-queue.js  (shared by all four: Service/Battery × Apply/Undo)
+cleanup/repair-engine.js  →  cleanup/repair-battery.js  (also imported directly into popup.js)
+
+cleanup/write-queue.js  (shared by all six: Service/Battery/Repair × Apply/Undo)
 ```
 
 `battery-engine.js`/`rules/battery-cleanup.js` are a second, independent
@@ -36,6 +38,11 @@ cleanup pipeline (see "Battery Cleanup: a second, universal cleanup action"
 below) - they share the site adapter and the popup/background message
 plumbing with Service Cleanup, but have their own classification logic, no
 inspection-profile dependency, and their own Undo storage key.
+`repair-engine.js`/`repair-battery.js` are a third, architecturally
+different pipeline (see "Repaired/Fixed" below) - human-driven rather than
+classify-everything, and `repair-battery.js` is the one pure-logic module
+in this codebase imported directly into `popup.js` rather than only ever
+running inside the background service worker.
 
 ## Why MAIN-world script injection instead of a content script
 
@@ -147,8 +154,8 @@ since BuildingReports returned no `Retry-After` header and has no
 documented bulk-save endpoint for `service`/Battery-attribute fields.
 
 `src/cleanup/write-queue.js` is the shared, pure-logic (no `chrome.*`, no
-DOM) coordinator used by **all four** write operations - Service Cleanup
-Apply/Undo and Battery Cleanup Apply/Undo:
+DOM) coordinator used by **all six** write operations - Service Cleanup
+Apply/Undo, Battery Cleanup Apply/Undo, and Repaired/Fixed Apply/Undo:
 
 - **Concurrency exactly 1.** `runQueue(checkpoint, { saveFn, onProgress,
   delayFn, shouldCancel })` awaits one item's `saveFn` result before moving
@@ -334,6 +341,68 @@ Service Entries, not a variant of it - added by following
   give-up or already-paused checkpoint does not block the Battery half from
   running (and vice versa) - see the applyBtn/undoBtn handlers in
   `popup.js`.
+
+## Repaired/Fixed: a third, human-driven cleanup action
+
+**Added 2026-08-24.** `src/cleanup/repair-engine.js` +
+`src/cleanup/repair-battery.js` are architecturally a third sibling to
+Clean Up Service Entries and Battery Cleanup, but a genuinely different
+shape - see `docs/repair-fixed-rules.md` for the full rule reference:
+
+- **Human-driven, not classify-everything.** Unlike Preview/Apply for the
+  other two actions, nothing here is auto-classified from report data -
+  "was this device repaired/replaced?" isn't derivable, so a human answers
+  it for every device that needs asking. `repair-engine.js`'s
+  `scanFailedDevices(records)` is the only automatic part: it filters to
+  `passed === false` devices (in report order) so the popup only ever asks
+  about devices that actually need it.
+- **Pure logic imported directly into the popup**, not just the background
+  service worker. `repair-battery.js`'s `buildBatteryRepairChange(record,
+  input)` has zero `chrome.*`/DOM dependency (same as every other
+  `cleanup/*` module), so `popup.js` imports it directly (`popup.html`
+  already loads `popup.js` as `type="module"`) and computes each device's
+  write payload the instant its form is submitted, without a round-trip
+  through `background.js` - the wizard needs to react to each answer
+  immediately, and there's nothing about the computation that needs to run
+  in the service worker specifically.
+- **Nothing is written until "Apply Repairs" is clicked.** The popup
+  accumulates a `repairPendingItems` array purely in its own in-memory
+  state as the human answers each device; only the final click sends the
+  whole batch to `background.js`'s `handleRepairApply`, which runs it
+  through the exact same `cleanup/write-queue.js` coordinator as every
+  other write path (checkpoint kind `repairApply`, currently hardcoded to
+  `saveBatteryItem` since Battery is the only device type with a rule so
+  far).
+- **Own checkpoint kinds and Undo history**, kept separate from Battery
+  Cleanup's (`repairApply`/`repairUndo`, `brSidekick.repairUndo.
+  <inspectionId>`) even though both can write the same Battery fields -
+  same "never cross-contaminate" reasoning as Service vs. Battery. Reuses
+  `background.js`'s fully generic resumable-operation machinery
+  (`SAVE_FNS`/`UNDO_KEY_FNS`, `handleOperationStatus`/
+  `handleResumeOperation`/etc. already take `kind` as a plain string) - no
+  new resume/pause/cancel/discard code was needed, just two more entries
+  in those maps.
+- **A genuinely new adapter capability: writing Install Date.** Every
+  other field this extension has ever written was already writable before
+  this feature - Install Date was deliberately read-only everywhere (see
+  the "Battery Cleanup" section above and `docs/battery-cleanup-rules.md`).
+  `adapter.js` gained `BATTERY_DATE_FIELD_MAP` (kept separate from
+  `BATTERY_FIELD_MAP` since it needs a real value transform, not just a
+  rename) and `parseLocalDateOnlyString` - the inverse of the existing
+  `toLocalDateOnlyString`, parsing this extension's own `"YYYY-MM-DD"`
+  string convention back into a real `Date` at local midnight. Confirmed
+  live with no timezone/off-by-one-day issues (`ADAPTER_VERSION` bumped to
+  7).
+- **A real CSS bug found during live testing:** `.hidden`'s
+  `display: none` lost a cascade tie against `.actions`' `display: flex`
+  when both classes landed on the same element (`repairYesNoBar`, a
+  `<div class="actions">` toggled hidden directly by `popup.js`) - both are
+  single-class selectors, and `.actions` is defined later in `popup.css`,
+  so it won. Fixed by making `.hidden` use `!important` (documented inline
+  in `popup.css` - it's meant to be an unconditional "hide no matter what"
+  utility class). This had been latent in the codebase before this
+  feature; it just never manifested until something toggled `.hidden`
+  directly on an `.actions` container.
 
 ## Data flow for "process the entire report"
 

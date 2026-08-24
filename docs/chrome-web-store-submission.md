@@ -45,8 +45,8 @@ BuildingReports Sidekick is an independent, unofficial productivity
 extension for people who already have authorized login access to
 BuildingReports.com. It is not affiliated with, endorsed by, or
 officially connected to BuildingReports in any way — it is a third-party
-tool built to save time on two specific, repetitive data-entry cleanup
-tasks inside BuildingReports' own Device Editor page.
+tool built to save time on specific, repetitive data-entry cleanup tasks
+inside BuildingReports' own Device Editor page.
 
 WHAT IT DOES
 
@@ -79,21 +79,38 @@ WHAT IT DOES
    both sides are failed together; Floor, Direction, Location, Description,
    and Area/Suite are read only to identify that pair. Anything missing,
    invalid, or suspicious is flagged instead of guessed at, and ambiguous
-   pairs are left unpaired.
+   pairs are left unpaired. Shares its Preview/Apply/Undo buttons with
+   Clean Up Service Entries (both run together on one click) while staying
+   independent under the hood.
 
-Both actions follow the same safe workflow: Preview (read-only, shows
-exactly what would change and why) → Apply (writes only the changes
-classified as safe, through BuildingReports' own Save button/save API,
-one device at a time so BuildingReports' own rate limits are respected) →
+3. Repaired / Fixed — a separate, human-driven action: walks only the
+   devices the currently open report already shows as Failed, one at a
+   time, and asks you to confirm whether each was actually repaired or
+   replaced before changing anything. For a Battery you confirm was
+   replaced, a short form asks for the new amperage (if it changed), the
+   date it was replaced/fixed, and who did the work (technician/customer
+   name and company name) — every other field (Post Test, Tested Ah, Min
+   Ah, Model Number, Passed, Service, Comment, Solution) is then set or
+   recalculated automatically from that input, and a dated note
+   summarizing the repair is appended below any existing notes. Nothing is
+   written until you review the full list and click Apply. Device types
+   without an automated rule yet are simply flagged for you to handle by
+   hand — never guessed at.
+
+All three actions follow the same safe workflow: Preview/scan (read-only,
+shows exactly what would change and why) → Apply (writes only the changes
+you confirmed, through BuildingReports' own Save button/save API, one
+device at a time so BuildingReports' own rate limits are respected) →
 Undo (restores the exact original values). Every Apply/Undo run is
 checkpointed locally so closing the popup mid-run never loses progress.
 
 WHAT IT DOES NOT DO
 
 This extension only ever edits a small, fixed set of device fields —
-Service; Battery's outcome and attribute fields; for Communicator and
-Monitoring specifically, one existing device-attribute field each plus
-Monitoring's Comment/Solution; for an Annual Heat Detector, one existing
+Service; Battery's outcome and attribute fields, including Install Date
+when you use Repaired/Fixed; for Communicator and Monitoring specifically,
+one existing device-attribute field each plus Monitoring's
+Comment/Solution; for an Annual Heat Detector, one existing
 device-attribute checkbox (Restorable); and for third-party serviced
 devices, Comment/Solution/Note — through BuildingReports' own Save
 button/save API. It has no ability to submit, certify, finalize, sign,
@@ -125,18 +142,20 @@ narrow purpose. Paste this into the "Single purpose" field:
 ```
 This extension has one purpose: to normalize and correct specific,
 well-defined data-entry fields (the Service field, Battery's outcome
-and attribute fields, and a small matching set of fields for
-Communicator/Communication Line/Monitoring devices, Annual Heat
-Detectors, and third-party serviced devices) on
+and attribute fields including Install Date, and a small matching set
+of fields for Communicator/Communication Line/Monitoring devices,
+Annual Heat Detectors, and third-party serviced devices) on
 BuildingReports.com's Device Editor page, using BuildingReports' own
-existing save mechanism. Clean Up Service Entries and Battery Cleanup
-are two facets of that same purpose (device record field
-normalization) rather than two unrelated features — both read the
-same report's device records, classify them with the same
-safe/ambiguous/needs-review logic, and write back through the same
-paced save queue. It does not add unrelated functionality (no
-reporting/export/analytics/scheduling features, no navigation or
-report-submission capability).
+existing save mechanism. Clean Up Service Entries, Battery Cleanup,
+and Repaired/Fixed are three facets of that same purpose (device
+record field normalization/correction) rather than unrelated
+features — all three read the same report's device records and write
+back through the same paced save queue; Repaired/Fixed additionally
+takes a small amount of typed confirmation input (who did a repair
+and when) but writes it into the exact same kind of existing device
+field the other two actions already write. It does not add unrelated
+functionality (no reporting/export/analytics/scheduling features, no
+navigation or report-submission capability).
 ```
 
 ## Permission justifications (paste per-permission in the dashboard)
@@ -191,7 +210,11 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   extension itself. (BuildingReports report data may incidentally
   contain device install locations, technician notes, etc. — this stays
   entirely within your BuildingReports session and the extension's local
-  `chrome.storage.local`; it is never sent to the developer.)
+  `chrome.storage.local`; it is never sent to the developer. Repaired/
+  Fixed additionally lets you type a technician/customer name and company
+  name directly into the popup, which is written into the device's Note
+  field on BuildingReports the same way any other cleanup change is —
+  never sent anywhere besides BuildingReports itself.)
 - **Health information**: No.
 - **Financial and payment information**: No.
 - **Authentication information**: No — the extension never sees your
@@ -204,12 +227,12 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   site.
 - **User activity**: No analytics/telemetry of any kind.
 - **Website content**: Yes — device record fields (Service text, Battery
-  attribute values, Communicator/Monitoring's attribute field, an Annual
-  Heat Detector's Restorable field, third-party serviced devices'
-  Comment/Solution/Note, and the Floor/Direction/Location/Description/
-  Area-Suite context used to identify battery pairs) from the
-  BuildingReports report you have open, processed locally as described
-  above and in `PRIVACY.md`.
+  attribute values including Install Date, Communicator/Monitoring's
+  attribute field, an Annual Heat Detector's Restorable field, third-party
+  serviced devices' Comment/Solution/Note, and the Floor/Direction/
+  Location/Description/Area-Suite context used to identify battery pairs)
+  from the BuildingReports report you have open, processed locally as
+  described above and in `PRIVACY.md`.
 
 Certify: "I do not sell or transfer user data to third parties" and "I do
 not use or transfer user data for purposes unrelated to the item's single

@@ -146,6 +146,22 @@ narrower, common case: add one field check to
 message handlers (`batteryPreview`/`batteryApply`/`batteryUndo`), and the
 adapter's save/verify plumbing don't change for that case.
 
+## Adding to Repaired/Fixed instead
+
+Repaired/Fixed is a third example of the "wholly new cleanup action" path
+above, but with a twist: it's human-driven, not classify-everything (see
+`docs/repair-fixed-rules.md`) - only devices currently marked Failed are
+walked, one at a time, and every field change comes from a human answering
+a form, not automatic classification. If you're adding a **new device
+type's repair rule** (not a new action), see "How to add the next device
+type's rule" at the bottom of that doc - the short version: a new pure
+`repair-<devicetype>.js` file, register it in `repair-engine.js`'s
+`REPAIR_RULES`, a new form section in `popup.html`/`popup.js`, and (only if
+the device type needs a field this extension has never written before,
+like Install Date was for Battery) a new mapping/transform in `adapter.js`.
+`background.js`'s `repairScan`/`repairApply`/`repairUndo` handlers and the
+popup's wizard-stepping logic don't change for that case.
+
 ## Editing the existing Semi-Annual rules
 
 `src/config/inspection-profiles/semi-annual.js` is enabled and live - see

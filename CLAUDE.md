@@ -14,7 +14,8 @@ Before touching any code, every session:
 4. Read `docs/web-store-status.md`.
 5. Read the documentation for whichever cleanup action you're about to
    change (`docs/cleanup-rules.md` for Service Cleanup,
-   `docs/battery-cleanup-rules.md` for Battery Cleanup).
+   `docs/battery-cleanup-rules.md` for Battery Cleanup,
+   `docs/repair-fixed-rules.md` for Repaired/Fixed).
 6. Run `git status` and inspect it before editing anything — know what's
    already staged/modified/untracked before you add to it.
 
@@ -52,8 +53,22 @@ reports, operated from a popup on the report's **Device Editor** page.
    under the hood: separate checkpoint kinds, separate Undo history, a
    Service-side pause/give-up never blocks the Battery half or vice versa.
    Full rule reference: `docs/battery-cleanup-rules.md`.
+3. **Repaired / Fixed** — architecturally unlike the two above: nothing is
+   auto-classified. A human-driven, one-device-at-a-time wizard that only
+   walks devices currently marked **Failed**, asking "was this
+   repaired/replaced?" for each. A device type with a rule (currently only
+   Battery — see `docs/repair-fixed-rules.md`) gets a short form on "yes"
+   (Amps, replacement date, technician/customer name, company name — every
+   other field is fixed or derived, never asked); a device type with no
+   rule yet is flagged for manual review instead of guessed at. Nothing is
+   written until **Apply Repairs** is clicked, going through the same
+   paced write queue as everything else, with its own **Undo Last
+   Repair** button/checkpoint kinds/Undo history — independent of Battery
+   Cleanup even though both can touch the same Battery fields. Gave the
+   Battery rule a genuinely new adapter capability: **writing** Install
+   Date (previously read-only everywhere in this codebase).
 
-Both actions share one popup, one background service worker, one site
+All three actions share one popup, one background service worker, one site
 adapter, and — critically — one paced write coordinator (see below).
 
 ## Architecture
@@ -73,7 +88,8 @@ Pure logic (no `chrome.*`, no DOM — unit-tested with plain `node --test`):
 cleanup/engine.js → cleanup/classify.js → cleanup/{device-type-matcher,one-hitter,service-parser}.js
                                          ↖ config/inspection-profiles/{annual,semi-annual}.js
 cleanup/battery-engine.js → cleanup/rules/battery-cleanup.js
-cleanup/write-queue.js   (shared by all 4 write operations: Service/Battery × Apply/Undo)
+cleanup/repair-engine.js → cleanup/repair-battery.js (imported into popup.js too — pure, no chrome.* dependency)
+cleanup/write-queue.js   (shared by all 6 write operations: Service/Battery/Repair × Apply/Undo)
 ```
 
 Full architectural rationale (why MAIN-world injection, why the engine has
@@ -86,7 +102,7 @@ detail in `docs/buildingreports-dom-map.md`.
 
 | File | Responsibility |
 |---|---|
-| `src/popup/popup.html`/`.js`/`.css` | UI only — sends messages, renders JSON results, never touches the report tab directly |
+| `src/popup/popup.html`/`.js`/`.css` | UI only — sends messages, renders JSON results, never touches the report tab directly. `popup.js` is loaded as an ES module (`type="module"`) and imports pure `src/cleanup/*` logic directly (e.g. `repair-battery.js`) — the only file in this extension that does |
 | `src/background/background.js` | Only place calling `chrome.scripting.executeScript`; owns Undo storage and the write-queue orchestration |
 | `src/site-adapters/buildingreports/adapter.js` | **The only file that knows BuildingReports' DOM/ExtJS internals.** MAIN-world, injected on demand. Everything else is generic |
 | `src/cleanup/engine.js` | `runCleanup(records, profile)` — Service Cleanup's Preview/Apply entry point |
@@ -96,6 +112,7 @@ detail in `docs/buildingreports-dom-map.md`.
 | `src/cleanup/one-hitter.js` | Heat Detector "One Hitter" free-text exception (Annual only) |
 | `src/config/inspection-profiles/annual.js` / `semi-annual.js` | Per-profile device lists, preserve phrases, prefix rules |
 | `src/cleanup/battery-engine.js` / `rules/battery-cleanup.js` | Battery Cleanup's report-level aggregation and per-record rules |
+| `src/cleanup/repair-engine.js` / `repair-battery.js` | Repaired/Fixed's Failed-device scan + per-device-type rule dispatch, and the Battery rule itself |
 | `src/cleanup/write-queue.js` | Paced, checkpointed, rate-limit-aware write coordinator — pure logic |
 | `tests/*.test.js` | `node --test`, synthetic fixtures only (`tests/fixtures.js`) |
 
@@ -214,6 +231,7 @@ selector stability notes, and repair steps: `docs/buildingreports-dom-map.md`.
 | `minAh` | `velocity1door` | Quirk: generic "Air Flow Value" column, repurposed |
 | `testedAh` | `velocity2door` | Quirk: same as above |
 | `modelNumber` | `modelnumber` | |
+| `installDate` | `installdate` | **Write support added 2026-08-24** (Repair/Fixed) — was read-only everywhere before that. A real Ext `Date` field: written from this extension's own `"YYYY-MM-DD"` string via `adapter.js`'s `parseLocalDateOnlyString` (local midnight, never `new Date(str)`/UTC). Kept in its own `BATTERY_DATE_FIELD_MAP`, not `BATTERY_FIELD_MAP`, since it needs a real value transform, not just a rename. Battery Cleanup itself still only ever *reads* this field. |
 
 `passed`, `service`, `comment`, `solution`, `note` pass through unchanged
 (their semantic name already is the real dataIndex). Inspection frequency

@@ -22,7 +22,7 @@
 // background.js's own per-tab applyInProgress guard is the primary defense
 // against overlapping Apply/Undo runs regardless.
 (function () {
-  const ADAPTER_VERSION = 6;
+  const ADAPTER_VERSION = 7;
   if (window.__brSidekickAdapter && window.__brSidekickAdapter.version >= ADAPTER_VERSION) {
     return;
   }
@@ -67,6 +67,18 @@
     postTest: 'posttestvoltage',
     minAh: 'velocity1door',
     testedAh: 'velocity2door',
+  };
+
+  // Repair/Fixed's Battery rule (added 2026-08-24) needs to WRITE Install
+  // Date - previously read-only everywhere in this codebase (see
+  // toPlainRecord's installDate line below, and docs/battery-cleanup-rules.md).
+  // Kept as its own map, not merged into BATTERY_FIELD_MAP, because writing
+  // it needs a real value transform (this extension's own "YYYY-MM-DD"
+  // string -> a real Ext `Date` field, see parseLocalDateOnlyString below),
+  // not just a dataIndex rename - same distinction as toLocalDateOnlyString
+  // being kept separate from BATTERY_FIELD_MAP on the read side.
+  const BATTERY_DATE_FIELD_MAP = {
+    installDate: 'installdate',
   };
 
   // Clean Up Service Entries' Communicator/Communication Line/Monitoring
@@ -139,6 +151,31 @@
     return `${y}-${m}-${d}`;
   }
 
+  const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+  // Inverse of toLocalDateOnlyString: parses this extension's own
+  // "YYYY-MM-DD" local-calendar-date string convention into a real JS Date
+  // at LOCAL midnight, via the multi-arg Date constructor (year, monthIndex,
+  // day) - never `new Date(str)`, which parses a date-only ISO string as UTC
+  // midnight per spec and can shift the calendar day near local midnight
+  // (same "avoid timezone errors" reasoning as rules/battery-cleanup.js's
+  // parseDateOnly). Returns null for anything that doesn't parse as a real
+  // calendar date - the caller (toRawBatteryFields) skips writing the field
+  // entirely rather than sending a null/invalid Date, since real validation
+  // belongs upstream in the pure repair-battery.js logic / popup form, not
+  // here.
+  function parseLocalDateOnlyString(value) {
+    if (typeof value !== 'string') return null;
+    const m = DATE_ONLY_PATTERN.exec(value.trim());
+    if (!m) return null;
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
+  }
+
   function toPlainRecord(rec) {
     const out = {};
     for (const field of RECORD_FIELDS) {
@@ -188,7 +225,16 @@
   }
 
   function toRawBatteryFields(semanticFields) {
-    return mapSemanticFields(BATTERY_FIELD_MAP, semanticFields);
+    const { installDate, ...rest } = semanticFields;
+    const raw = mapSemanticFields(BATTERY_FIELD_MAP, rest);
+    if (installDate !== undefined) {
+      const parsed = parseLocalDateOnlyString(installDate);
+      // Skip entirely rather than writing null - an unparseable installDate
+      // should never reach here (validated upstream), but silently clearing
+      // a battery's Install Date would be worse than just not writing it.
+      if (parsed) raw[BATTERY_DATE_FIELD_MAP.installDate] = parsed;
+    }
+    return raw;
   }
 
   function toRawServiceExtraFields(semanticFields) {

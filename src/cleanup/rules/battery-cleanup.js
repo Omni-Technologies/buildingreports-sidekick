@@ -75,7 +75,9 @@ const CHANGE_PRIORITY = [
 
 const BATTERY_DEVICE_TYPE_KEY = normalizeDeviceTypeKey('Battery');
 const NUMERIC_PATTERN = /^-?\d+(\.\d+)?$/;
-const MIN_AH_FACTOR = 0.65;
+// Exported (see parseNumericField above) so Repair/Fixed's Battery rule
+// computes Min Ah/Model Number identically, never a second hand-rolled copy.
+export const MIN_AH_FACTOR = 0.65;
 const EXPIRATION_YEARS = 3;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -114,7 +116,11 @@ export function isBattery(deviceType) {
   return normalizeDeviceTypeKey(deviceType) === BATTERY_DEVICE_TYPE_KEY;
 }
 
-function parseNumericField(raw) {
+// Exported so src/cleanup/repair-battery.js (Repair/Fixed's Battery rule)
+// can reuse the exact same numeric parsing/formatting/Min Ah/Model Number
+// formulas instead of duplicating them - see docs/battery-cleanup-rules.md
+// and docs/repair-fixed-rules.md.
+export function parseNumericField(raw) {
   if (isBlank(raw)) return { state: 'blank' };
   const trimmed = collapseWhitespace(String(raw));
   if (!NUMERIC_PATTERN.test(trimmed)) return { state: 'invalid' };
@@ -163,7 +169,7 @@ function formatDateDisplay(parsedDate) {
   return `${mm}/${dd}/${parsedDate.year}`;
 }
 
-function formatTwoDecimals(value) {
+export function formatTwoDecimals(value) {
   return value.toFixed(2);
 }
 
@@ -187,7 +193,7 @@ function toHundredths(value) {
 
 // Strips insignificant trailing zeros for Model Number generation (12.00 ->
 // "12", 7.50 -> "7.5") while preserving a genuinely meaningful decimal.
-function trimTrailingZeros(value) {
+export function trimTrailingZeros(value) {
   return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 

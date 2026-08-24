@@ -46,10 +46,27 @@ changes — it's meant to save a future session from re-deriving all of this.
   no "flat" marker anywhere is treated as an already-serviced/replaced
   battery and passes rather than fails (2026-08-24) — Install Date
   expiration still independently applies.
+- **Repaired / Fixed** — added 2026-08-24. Human-driven, unlike the two
+  actions above: walks only devices currently marked Failed, one at a time,
+  asking "was this repaired/replaced?" for each. Battery has the only rule
+  so far (`src/cleanup/repair-battery.js`): a short form (Amps, replacement
+  date, technician/customer name, company name) computes Post Test/Tested
+  Ah → `0.00`, Min Ah/Model Number derived from the new Amps, Passed
+  checked, Comment/Solution cleared, Service → `Visual & Functional,
+  Passed`, and a new line appended below the existing Note. A device type
+  with no rule yet is flagged for manual review instead of guessed at.
+  Nothing is written until "Apply Repairs" is clicked, through the same
+  paced write queue as everything else, with its own Undo history
+  (`repairApply`/`repairUndo` checkpoint kinds, kept separate from Battery
+  Cleanup's even though both write Battery fields). Gave the adapter a
+  genuinely new capability: **writing** Install Date (`adapter.js`'s
+  `BATTERY_DATE_FIELD_MAP`/`parseLocalDateOnlyString`, `ADAPTER_VERSION`
+  bumped to 7) - previously read-only everywhere in this codebase. Full
+  rule reference: `docs/repair-fixed-rules.md`.
 - **Shared paced write queue** (`src/cleanup/write-queue.js`) — concurrency
   1, checkpointed to `chrome.storage.local`, rate-limit backoff + bounded
-  retries + manual Resume, Pause / Cancel Remaining. Used by all four write
-  paths (Service/Battery × Apply/Undo). See `docs/architecture.md`.
+  retries + manual Resume, Pause / Cancel Remaining. Used by all six write
+  paths (Service/Battery/Repair × Apply/Undo). See `docs/architecture.md`.
 
 ## Tests
 
@@ -57,9 +74,10 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**202 tests, 0 failures** across `tests/*.test.js`
+**227 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
-`communications-cleanup.test.js`, `engine.test.js`, `semi-annual.test.js`,
+`communications-cleanup.test.js`, `engine.test.js`, `repair-battery.test.js`,
+`repair-engine.test.js`, `semi-annual.test.js`,
 `third-party-service-parser.test.js`, `write-queue.test.js`). Synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
 this count drifts from what's actually reported by `npm test`, trust the
@@ -98,7 +116,7 @@ live run, not this file.
 
 ## Adapter version
 
-`ADAPTER_VERSION = 6` (`src/site-adapters/buildingreports/adapter.js`) —
+`ADAPTER_VERSION = 7` (`src/site-adapters/buildingreports/adapter.js`) —
 single-record save API (`applySingleServiceChange`/
 `applySingleServiceFieldsChange`/`applySingleBatteryChange`). Bump this
 constant whenever `adapter.js` changes, per the versioned-re-injection
@@ -111,7 +129,11 @@ dataIndex `simulated`, confirmed live) for the Annual Heat Detector
 Restorable rule, folded into the same `SERVICE_EXTRA_FIELD_MAP`/
 `applySingleServiceFieldsChange` path `COMMS_FIELD_MAP` already used (no
 new adapter method needed for Third-Party Serviced Devices - Service/
-Comment/Solution/Note were already plain pass-through fields).
+Comment/Solution/Note were already plain pass-through fields). Version 7
+(2026-08-24) added `BATTERY_DATE_FIELD_MAP`/`parseLocalDateOnlyString` -
+**write** support for Install Date (Repair/Fixed's Battery rule), the
+first time this codebase has ever written that field; confirmed live with
+no timezone/off-by-one-day issues (see `docs/repair-fixed-rules.md`).
 
 ## Known limitations / unresolved items
 
@@ -189,6 +211,37 @@ here):**
 - The report was left in its original, fully-consistent state afterward
   (the hand-blanked Post Test was manually restored to its true original
   `13.07` after Undo, since Undo only reverts to the hand-set test value).
+- **Repaired/Fixed (same day, same report):** 2 real Batteries were
+  genuinely Date Expired (confirmed earlier the same session) - a real
+  Battery Cleanup Apply correctly marked them Failed, giving Repair/Fixed
+  a real Failed device to walk. "Start Repair Walkthrough" correctly
+  scanned to exactly those 2 (not the other 220+ Passing devices),
+  presented them one at a time in report order. Device 1 ("Yes,
+  repaired/replaced" → Battery form, Amps changed 12.00 → 14.00, Tech
+  "Test Tech", Company "Test Fire & Safety Co") correctly computed Min Ah
+  9.10, Model Number `12V-14Ah`, and the exact Note line `Battery Replaced
+  By Test Tech With Test Fire & Safety Co - 8/24/26`. Device 2 ("No")
+  correctly skipped with no changes recorded. The summary showed "Repairs
+  ready to apply: 1" with the computed values displayed for review before
+  anything was written. "Apply Repairs" saved 1/1 with zero failures,
+  verified directly against the live grid (amps `14.00`, Post Test/Tested
+  Ah both `0.00`, Min Ah `9.10`, Model Number `12V-14Ah`, Passed checked,
+  Service `Visual & Functional, Passed`, Comment/Solution cleared, Note
+  correctly appended below the existing `Date Expired - Replace Battery`
+  line) - **including the brand-new Install Date write**, confirmed local
+  midnight with no timezone shift (`Mon Aug 24 2026 00:00:00` in the local
+  timezone). "Undo Last Repair" showed the real entry count in its
+  confirmation (`"...restores 1 Battery field(s)..."`) and restored every
+  field exactly, including the real original Install Date (`Mon Jan 02
+  2023 00:00:00`, the Battery's actual pre-repair expired date) - a full,
+  clean round trip. A real CSS bug was found and fixed during this
+  testing: `.hidden`'s `display: none` lost a cascade tie against
+  `.actions`' `display: flex` when both classes were on the same element
+  (`repairYesNoBar`), which is a `<div class="actions">` toggled hidden
+  directly - `.hidden` now uses `!important` (see `popup.css`). The
+  "no-rule-yet device" review path (a Failed non-Battery device answered
+  "Yes") was unit-tested only - this report had no Failed non-Battery
+  device to test live against.
 
 Verified end-to-end against a real, live BuildingReports report through
 Chrome DevTools MCP (no customer/report identifiers recorded here or
@@ -274,6 +327,9 @@ anywhere in this repo):
   `classify.js` beyond its one dispatch call.
 - `src/cleanup/rules/battery-cleanup.js` / `battery-engine.js` — a new
   Battery field rule.
+- `src/cleanup/repair-engine.js` / `repair-<devicetype>.js` — a new
+  Repaired/Fixed device-type rule; see `docs/repair-fixed-rules.md` "How to
+  add the next device type's rule".
 - `src/site-adapters/buildingreports/adapter.js` — only if a new field
   mapping or a genuinely new BuildingReports interaction is needed; keep
   single-record, keep JSON-in/JSON-out.

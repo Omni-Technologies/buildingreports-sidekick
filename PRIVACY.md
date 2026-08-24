@@ -1,7 +1,6 @@
 # Privacy Policy — BuildingReports Sidekick
 
-**Last updated: 2026-08-06** (Annual Heat Detector Restorable field and
-third-party serviced device rules)
+**Last updated: 2026-08-24** (Repaired/Fixed action)
 
 BuildingReports Sidekick ("this extension") is an unofficial, independent
 productivity tool for people who already have authorized login access to
@@ -29,7 +28,7 @@ source code, which is auditable in full.
 
 ## What data the extension touches
 
-The extension reads and writes exactly two kinds of information, both
+The extension reads and writes exactly three kinds of information, all
 scoped to the BuildingReports Device Editor page you already have open:
 
 1. **Device Service field / Battery fields / Communicator, Communication
@@ -55,9 +54,22 @@ scoped to the BuildingReports Device Editor page you already have open:
    Description, and Area/Suite solely to match Left/Right battery pairs,
    and Battery/Communicator/Monitoring/third-party-serviced devices read
    Install Date/Inspection Date solely to decide expiration/date
-   formatting; those read-only fields are never written or stored by the
-   extension.
-2. **A local Undo/checkpoint history** — stored only in
+   formatting; those read-only fields were never written back by Clean Up
+   Service Entries or Battery Cleanup.
+2. **Repaired/Fixed** (added 2026-08-24) — a separate, opt-in action for
+   devices you tell the extension were physically repaired or replaced.
+   Unlike the classification above, this reads only devices the report
+   already shows as Failed, and every field it writes comes from either
+   BuildingReports' own existing data or **text you type directly into
+   this extension's popup** (a technician/customer name and a company
+   name, plus an amperage value and a repair date, all for the Battery
+   rule specifically): those typed values are written into the Battery's
+   own Note/Comment/Solution/Service/Passed/Amps/Min Ah/Model Number
+   fields — the same fields listed above, still only through
+   BuildingReports' own Save button/save API, never sent anywhere else.
+   This action also writes Install Date, a field Battery Cleanup already
+   read to decide expiration but never wrote back until this action.
+3. **A local Undo/checkpoint history** — stored only in
    `chrome.storage.local` (a storage area private to your browser
    profile, never synced to any account or server by this extension):
    - The before/after values of the most recent Apply run, so **Undo**
@@ -82,11 +94,12 @@ BuildingReports' own Save button would send.
   reviewed as part of the Chrome Web Store submission.
 - It does not submit, certify, finalize, sign, distribute, or delete any
   report, building, or device record. It only ever writes to the specific
-  device fields listed above (Service; Battery's outcome/attribute fields;
-  Communicator/Monitoring's own attribute field and, for Monitoring,
-  Comment/Solution; an Annual Heat Detector's Restorable field; a
-  third-party serviced device's Comment/Solution/Note), using
-  BuildingReports' own Save mechanism.
+  device fields listed above (Service; Battery's outcome/attribute fields
+  and, for Repaired/Fixed specifically, Install Date; Communicator/
+  Monitoring's own attribute field and, for Monitoring, Comment/Solution;
+  an Annual Heat Detector's Restorable field; a third-party serviced
+  device's Comment/Solution/Note), using BuildingReports' own Save
+  mechanism.
 - It does not operate on any site other than `https://www.buildingreports.com`.
 - It does not collect diagnostic logs, screenshots, or usage statistics
   and send them anywhere.

@@ -104,6 +104,82 @@
     </details>
   </section>
 
+  <header>
+    <h1>Repaired / Fixed</h1>
+  </header>
+
+  <section class="panel">
+    <div>Walks through devices currently marked Failed and asks whether each was repaired/replaced. Battery has an automated rule - other device types are flagged for manual review until their own rule is added.</div>
+  </section>
+
+  <section class="panel actions">
+    <button id="repairStartBtn" disabled>Start Repair Walkthrough</button>
+    <button id="repairUndoBtn" disabled>Undo Last Repair</button>
+  </section>
+
+  <section id="repairResumeBar" class="panel hidden">
+    <div id="repairResumeText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="repairResumeBtn">Resume</button>
+      <button id="repairDiscardBtn">Cancel Remaining</button>
+    </div>
+  </section>
+
+  <section id="repairProgress" class="panel hidden">
+    <div id="repairProgressText"></div>
+    <div class="actions" style="margin-top:6px;">
+      <button id="repairPauseBtn">Pause</button>
+      <button id="repairCancelRemainingBtn">Cancel Remaining</button>
+    </div>
+  </section>
+
+  <section id="repairWizard" class="panel hidden">
+    <div id="repairWizardProgress" style="font-weight:600;"></div>
+    <div id="repairDeviceInfo" style="margin:4px 0;"></div>
+    <div id="repairYesNoBar" class="actions">
+      <button id="repairYesBtn">Yes, repaired/replaced</button>
+      <button id="repairNoBtn">No</button>
+      <button id="repairStopBtn">Stop &amp; Review</button>
+    </div>
+    <div id="repairBatteryForm" class="hidden">
+      <label for="repairAmpsInput">Amps</label>
+      <input id="repairAmpsInput" type="text" inputmode="decimal" />
+      <label for="repairDateInput">Date replaced/fixed</label>
+      <input id="repairDateInput" type="date" />
+      <label for="repairTechInput">Technician/Customer name</label>
+      <input id="repairTechInput" type="text" />
+      <label for="repairCompanyInput">Company name</label>
+      <input id="repairCompanyInput" type="text" />
+      <div id="repairFormErrors" class="error"></div>
+      <div class="actions" style="margin-top:6px;">
+        <button id="repairSaveContinueBtn">Save &amp; Continue</button>
+        <button id="repairCancelDeviceBtn">Skip this device</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="repairSummary" class="panel hidden">
+    <h2>Repair Summary</h2>
+    <div id="repairSummaryText"></div>
+    <details id="repairReviewDetails">
+      <summary id="repairReviewSummary">Needs manual review (no rule yet)</summary>
+      <div id="repairReviewList"></div>
+    </details>
+    <details id="repairPendingDetails">
+      <summary id="repairPendingSummary">Ready to apply</summary>
+      <div id="repairPendingList"></div>
+    </details>
+    <div class="actions" style="margin-top:6px;">
+      <button id="repairApplyBtn" disabled>Apply Repairs</button>
+      <button id="repairCancelAllBtn">Discard All</button>
+    </div>
+  </section>
+
+  <section id="repairResult" class="panel hidden">
+    <h2>Repair Result</h2>
+    <div id="repairResultText"></div>
+  </section>
+
   <details id="diagnostics" class="panel hidden">
     <summary>Diagnostics</summary>
     <pre id="diagnosticsText"></pre>

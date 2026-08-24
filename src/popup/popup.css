@@ -19,8 +19,14 @@ header h1 {
   background: #fafafa;
 }
 
+/* !important: this is a "hide no matter what" utility class - without it,
+   toggling .hidden directly on an element that ALSO has a display-setting
+   class (e.g. .actions' display:flex) loses the cascade tie since both are
+   single-class selectors and .actions is defined later below. Confirmed
+   live 2026-08-24: repairYesNoBar (class="actions", toggled hidden by
+   popup.js) stayed visibly displayed until this was added. */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 label {
@@ -45,6 +51,22 @@ select {
   margin-top: 4px;
   font-size: 11px;
   color: #666;
+}
+
+#repairBatteryForm label {
+  margin-top: 6px;
+}
+
+#repairBatteryForm input {
+  width: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.error {
+  color: #a4262c;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .actions {

@@ -56,10 +56,22 @@ explicitly says so.
   a generated `12.00`-`13.00` reading (cosmetic only); a `0.00` Post Test +
   `0.00` Tested Ah with no "flat" marker anywhere now passes instead of
   fails (marks an already-replaced battery, not a genuine failure) -
-  Install Date expiration still independently applies. No manifest
-  permission changes; no privacy-disclosure changes (no new data read,
-  stored, or transmitted - see `PRIVACY.md`'s already-listed Battery
-  attribute fields, which already cover Post Test).
+  Install Date expiration still independently applies. **Also (same day):
+  a new Repaired/Fixed action** - a human-driven, device-by-device
+  walkthrough of currently-Failed devices, with an automated Battery rule
+  (Amps/replacement date/technician/company form → Post Test/Tested Ah
+  reset, Min Ah/Model Number recalculated, Passed/Service/Comment/Solution
+  set, a dated Note line appended) and its own Apply/Undo buttons/Undo
+  history. This is the first feature to **write** Install Date
+  (`ADAPTER_VERSION` bumped to 7 - previously read-only) and the first to
+  take free-text human input (technician/company name) written into a
+  device field. No manifest permission changes for any of this. Privacy
+  disclosures **were** updated 2026-08-24 for the Repaired/Fixed action
+  specifically (`PRIVACY.md` and `docs/chrome-web-store-submission.md`
+  both revised to describe the Install Date write and the typed
+  technician/company name input) - the Battery Cleanup/Communicator
+  changes listed above needed no privacy-disclosure changes (no new data
+  read, stored, or transmitted beyond what was already listed).
 - **0.1.4 release notes**: see `CHANGELOG.md`'s `## [0.1.4]` section
   (Annual Heat Detector Restorable rule; Third-Party Serviced Devices
   rule; Communicator/Communication Line/Monitoring rules; Battery Cleanup

@@ -55,11 +55,32 @@ all rows below: `src/cleanup/rules/battery-cleanup.js` (attribute rules) /
 | Missing/invalid Inspection Date, Min Ah, or Tested Ah with no proven failure → `REVIEW`, outcome fields untouched | Implemented | Unit only | Attribute formatting still applies independently |
 | `isBattery()` device-type match tolerant, never substring/fuzzy | Implemented | Yes | Same style as Service Cleanup's device-type matcher |
 
+## Repaired / Fixed
+
+**Added 2026-08-24.** Human-driven, unlike the two actions above - only
+walks devices currently marked Failed, one at a time, asking "was this
+repaired/replaced?" for each. Source file for the report-level scan/
+dispatch: `src/cleanup/repair-engine.js`. Full rule reference:
+`docs/repair-fixed-rules.md`.
+
+| Rule | Status | Live tested | Notes |
+|---|---|---|---|
+| Scans only devices currently marked Failed (`passed === false`), in report order | Implemented | Yes | `repair-engine.js` `scanFailedDevices` |
+| Every Failed device gets an explicit "was this repaired?" question | Implemented | Yes | Sequential one-device-at-a-time wizard in the popup, never a bulk classify |
+| Device type with no rule yet, answered "yes" → flagged for manual review, no field change | Implemented | Unit only | No real Failed non-Battery device existed on the test report |
+| Battery: Amps asked (prefilled with current value); Rated Voltage never asked, kept as-is | Implemented | Yes | `repair-battery.js` `buildBatteryRepairChange` |
+| Battery: Post Test/Tested Ah reset to `0.00`; Min Ah/Model Number derived from the new Amps via the exact same formulas Battery Cleanup uses | Implemented | Yes | Never a second hand-rolled copy - reuses exported helpers from `rules/battery-cleanup.js` |
+| Battery: Passed checked, Comment/Solution cleared, Service → `Visual & Functional, Passed` | Implemented | Yes | |
+| Battery: Note gets a new `Battery Replaced By <name> With <company> - <M/D/YY>` line appended below whatever's already there, never overwritten | Implemented | Yes | Confirmed live preserving a real prior `Date Expired - Replace Battery` line |
+| Battery: Install Date is asked (date replaced/fixed) and **written** - a brand-new adapter capability | Implemented | Yes | Previously read-only everywhere in this codebase - see `adapter.js`'s `BATTERY_DATE_FIELD_MAP`/`parseLocalDateOnlyString`, `ADAPTER_VERSION = 7` |
+| Nothing written until "Apply Repairs" is clicked; own Undo history/checkpoint kinds (`repairApply`/`repairUndo`), independent of Battery Cleanup's | Implemented | Yes | Same paced write queue as every other write path |
+| Undo confirmation shows the real entry count before restoring | Implemented | Yes | `handleUndoStatus` extended to also report `repairEntries` |
+
 ## Shared infrastructure (not a "rule" but load-bearing for every rule above)
 
 | Piece | Source file | Status | Notes |
 |---|---|---|---|
-| Paced write queue (concurrency 1, checkpointed, rate-limit backoff, Pause/Resume/Cancel Remaining) | `write-queue.js` | Implemented | Used by all 4 write paths; see `docs/architecture.md` |
-| Single-record adapter save + verify | `adapter.js` `applySingleFieldChange` | Implemented | `ADAPTER_VERSION = 5` |
+| Paced write queue (concurrency 1, checkpointed, rate-limit backoff, Pause/Resume/Cancel Remaining) | `write-queue.js` | Implemented | Used by all 6 write paths (Service/Battery/Repair × Apply/Undo); see `docs/architecture.md` |
+| Single-record adapter save + verify | `adapter.js` `applySingleFieldChange` | Implemented | `ADAPTER_VERSION = 7` |
 | Multi-field Service Cleanup write (Communicator/Monitoring's attribute field, Monitoring's Comment/Solution, Heat Detector's Restorable, third-party serviced devices' Comment/Solution/Note) | `adapter.js` `applySingleServiceFieldsChange`, `SERVICE_EXTRA_FIELD_MAP` (`COMMS_FIELD_MAP` + `HEAT_DETECTOR_FIELD_MAP`) | Implemented | Same single-record save/verify path as every other write; `background.js`'s `saveServiceItem` branches on `typeof item.writeValue` |
 | Preview/Apply/Undo message plumbing | `background.js` | Implemented | Generic per checkpoint `kind` |

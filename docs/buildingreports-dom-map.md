@@ -54,14 +54,23 @@ const store = grid.getStore();
   `service`, `comment`, `solution`, `note`, `controlpanel`, `zone`,
   `address`, `installdate`, plus device-attribute-specific fields.
   `installdate` is Battery Cleanup's expiration input as of 2026-08-06
-  (`installDate` semantic name, read-only, same `toLocalDateOnlyString`
-  treatment as `inspectiondate`) - confirmed live it's a genuinely
-  per-device value (e.g. a replaced battery carries the replacement date),
-  unlike `inspectiondate` which is effectively the same for every device in
-  one inspection visit. `inspectiondate` itself is still read on every
-  record (semantic name `inspectionDate`) - used by Clean Up Service
-  Entries' Communicator rule as a date fallback, see
-  `docs/cleanup-rules.md`.
+  (`installDate` semantic name, read-only for Battery Cleanup itself, same
+  `toLocalDateOnlyString` treatment as `inspectiondate`) - confirmed live
+  it's a genuinely per-device value (e.g. a replaced battery carries the
+  replacement date), unlike `inspectiondate` which is effectively the same
+  for every device in one inspection visit. `inspectiondate` itself is
+  still read on every record (semantic name `inspectionDate`) - used by
+  Clean Up Service Entries' Communicator rule as a date fallback, see
+  `docs/cleanup-rules.md`. **Write support added 2026-08-24** for
+  Repaired/Fixed's Battery rule - `installdate` is a real Ext `date`-type
+  field (like `inspectiondate`), and `rec.set('installdate', new Date(...))`
+  followed by the ordinary Save flow writes it with no quirks found:
+  confirmed live the resulting value round-trips exactly through
+  `toLocalDateOnlyString` on the next read, with no timezone/off-by-one-day
+  shift, as long as the `Date` is constructed at local midnight via the
+  multi-arg constructor (`adapter.js`'s `parseLocalDateOnlyString`) rather
+  than `new Date("YYYY-MM-DD")` (UTC per spec). See
+  `docs/repair-fixed-rules.md` for the full account.
 - Every record field can be read with `record.get('<dataIndex>')`.
 - Battery Cleanup reads `floor`, `direction`, `location`, `description`,
   and `areasuite` as read-only context for conservative Left/Right pair

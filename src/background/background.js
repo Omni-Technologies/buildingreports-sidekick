@@ -3,6 +3,7 @@ import { runBatteryCleanup } from '../cleanup/battery-engine.js';
 import { getProfile } from '../config/inspection-profiles/index.js';
 import { createCheckpoint, runQueue, prepareResume, summarize, isComplete } from '../cleanup/write-queue.js';
 import { classifyThirdPartyServiceRecord } from '../cleanup/third-party-service-parser.js';
+import { scanFailedDevices } from '../cleanup/repair-engine.js';
 
 // Third-party serviced devices' 31-character Service limit - see
 // docs/cleanup-rules.md's "Third-Party Serviced Devices" section.
@@ -39,6 +40,16 @@ function undoStorageKey(inspectionId) {
 // actions' Undo never cross-contaminate each other.
 function batteryUndoStorageKey(inspectionId) {
   return `brSidekick.batteryUndo.${inspectionId}`;
+}
+
+// Repair/Fixed's own Undo history - kept separate from Battery Cleanup's
+// even though both can write the same Battery fields, since they're
+// conceptually distinct actions (an automated classify-and-fix pass vs. a
+// human-confirmed one-time repair record) with different checkpoint kinds
+// (repairApply/repairUndo below) - same "never cross-contaminate" reasoning
+// as Service vs. Battery.
+function repairUndoStorageKey(inspectionId) {
+  return `brSidekick.repairUndo.${inspectionId}`;
 }
 
 // One resumable checkpoint slot per (kind, inspection) - kind is one of
@@ -418,24 +429,27 @@ async function handleUndo(tabId) {
   }
 }
 
-// Read-only entry-count peek for both Undo histories (Service + Battery),
-// used by the popup's combined Undo confirmation so a technician sees
-// exactly how much will be restored before clicking Undo - see
-// docs/architecture.md's Undo section and CLAUDE.md's "Definition of done"
-// step 5 on checking chrome.storage.local's entry count first.
+// Read-only entry-count peek for all three Undo histories (Service +
+// Battery + Repair/Fixed), used by the popup's Undo confirmations so a
+// technician sees exactly how much will be restored before clicking Undo -
+// see docs/architecture.md's Undo section and CLAUDE.md's "Definition of
+// done" step 5 on checking chrome.storage.local's entry count first.
 async function handleUndoStatus(tabId) {
   const host = await detectReport(tabId);
   if (!host) return { found: false };
   const inspectionId = host.meta.inspectionId;
   const serviceKey = undoStorageKey(inspectionId);
   const batteryKey = batteryUndoStorageKey(inspectionId);
-  const stored = await chrome.storage.local.get([serviceKey, batteryKey]);
+  const repairKey = repairUndoStorageKey(inspectionId);
+  const stored = await chrome.storage.local.get([serviceKey, batteryKey, repairKey]);
   const serviceRecord = stored[serviceKey];
   const batteryRecord = stored[batteryKey];
+  const repairRecord = stored[repairKey];
   return {
     found: true,
     serviceEntries: (serviceRecord && serviceRecord.entries && serviceRecord.entries.length) || 0,
     batteryEntries: (batteryRecord && batteryRecord.entries && batteryRecord.entries.length) || 0,
+    repairEntries: (repairRecord && repairRecord.entries && repairRecord.entries.length) || 0,
   };
 }
 
@@ -650,21 +664,162 @@ async function handleBatteryUndo(tabId) {
   }
 }
 
-// Generic resumable-operation support, shared by all four kinds
-// ('serviceApply' | 'serviceUndo' | 'batteryApply' | 'batteryUndo'). Lets the
-// popup show "Operation paused - N completed, M remaining - Resume" on
-// reopen instead of assuming the last run either fully finished or fully
-// failed.
+// Repair/Fixed - a human-driven, device-by-device action, architecturally
+// unlike Service/Battery Cleanup's classify-everything-automatically
+// Preview: only devices currently marked Failed are scanned (see
+// repair-engine.js's scanFailedDevices), and every field change comes from
+// a human answering "was this repaired?" plus (for a device type with a
+// rule, e.g. Battery) filling in a short form in the popup - see
+// docs/repair-fixed-rules.md. The popup builds each item's writeValue/
+// priorValue itself (via repair-battery.js's buildBatteryRepairChange,
+// imported directly into popup.js since it's pure logic with no chrome.*
+// dependency) and sends the finished list here to write - this handler
+// never re-derives field values itself, only validates shape and runs them
+// through the same paced write queue/checkpoint/Undo machinery as every
+// other write path in this extension.
+
+async function handleRepairScan(tabId) {
+  const host = await detectReport(tabId);
+  if (!host) return { found: false };
+  const records = await getAllRecords(tabId, host.frameId);
+  if (!records) return { found: false };
+  const failedDevices = scanFailedDevices(records);
+  return { found: true, meta: host.meta, failedDevices };
+}
+
+async function handleRepairApply(tabId, items) {
+  if (applyInProgress.has(tabId)) {
+    return { ok: false, error: 'already-running' };
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return { ok: false, error: 'no-items' };
+  }
+  for (const item of items) {
+    if (!item || item.scannumber == null || !item.writeValue || typeof item.writeValue !== 'object') {
+      return { ok: false, error: 'invalid-item' };
+    }
+  }
+  applyInProgress.add(tabId);
+  try {
+    const host = await detectReport(tabId);
+    if (!host) return { ok: false, error: 'report-not-found' };
+    const inspectionId = host.meta.inspectionId;
+
+    const { checkpoint, wasExplicitCancel, refusedAlreadyPaused } = await runNewOperation({
+      tabId,
+      frameId: host.frameId,
+      kind: 'repairApply',
+      inspectionId,
+      items,
+      saveItemFn: saveBatteryItem,
+    });
+
+    if (refusedAlreadyPaused) {
+      return { ok: false, error: 'operation-already-paused', progress: summarize(checkpoint) };
+    }
+
+    const result = summarizeCheckpointForResponse(checkpoint, wasExplicitCancel);
+    if (inspectionId != null) {
+      await mergeUndoEntries(repairUndoStorageKey(inspectionId), inspectionId, result.confirmedEntries);
+    }
+
+    return {
+      ok: true,
+      applied: result.applied,
+      failed: result.failed,
+      undoAvailable: result.applied.length > 0,
+      progress: result.progress,
+      paused: result.paused,
+      gaveUp: result.gaveUp,
+      cancelled: result.cancelled,
+      pausedByUser: result.pausedByUser,
+    };
+  } finally {
+    applyInProgress.delete(tabId);
+  }
+}
+
+async function handleRepairUndo(tabId) {
+  if (applyInProgress.has(tabId)) {
+    return { ok: false, error: 'already-running' };
+  }
+  applyInProgress.add(tabId);
+  try {
+    const host = await detectReport(tabId);
+    if (!host) return { ok: false, error: 'report-not-found' };
+    const inspectionId = host.meta.inspectionId;
+    const key = repairUndoStorageKey(inspectionId);
+    const stored = await chrome.storage.local.get(key);
+    const record = stored[key];
+    if (!record || !record.entries || record.entries.length === 0) {
+      return { ok: false, error: 'nothing-to-undo' };
+    }
+
+    const items = record.entries.map((e) => ({
+      scannumber: e.scannumber,
+      writeValue: e.before,
+      priorValue: e.after,
+    }));
+
+    const { checkpoint, wasExplicitCancel, refusedAlreadyPaused } = await runNewOperation({
+      tabId,
+      frameId: host.frameId,
+      kind: 'repairUndo',
+      inspectionId,
+      items,
+      saveItemFn: saveBatteryItem,
+    });
+
+    if (refusedAlreadyPaused) {
+      return { ok: false, error: 'operation-already-paused', progress: summarize(checkpoint) };
+    }
+
+    const result = summarizeCheckpointForResponse(checkpoint, wasExplicitCancel);
+
+    const restoredSet = new Set(result.applied.map(String));
+    const remainingEntries = record.entries.filter((e) => !restoredSet.has(String(e.scannumber)));
+    if (remainingEntries.length > 0) {
+      await chrome.storage.local.set({
+        [key]: { inspectionId, timestamp: record.timestamp, entries: remainingEntries },
+      });
+    } else {
+      await chrome.storage.local.remove(key);
+    }
+
+    return {
+      ok: true,
+      restored: result.applied,
+      failed: result.failed,
+      total: record.entries.length,
+      progress: result.progress,
+      paused: result.paused,
+      gaveUp: result.gaveUp,
+      cancelled: result.cancelled,
+      pausedByUser: result.pausedByUser,
+    };
+  } finally {
+    applyInProgress.delete(tabId);
+  }
+}
+
+// Generic resumable-operation support, shared by all six kinds
+// ('serviceApply' | 'serviceUndo' | 'batteryApply' | 'batteryUndo' |
+// 'repairApply' | 'repairUndo'). Lets the popup show "Operation paused - N
+// completed, M remaining - Resume" on reopen instead of assuming the last
+// run either fully finished or fully failed.
 
 const SAVE_FNS = {
   serviceApply: saveServiceItem,
   serviceUndo: saveServiceItem,
   batteryApply: saveBatteryItem,
   batteryUndo: saveBatteryItem,
+  repairApply: saveBatteryItem,
+  repairUndo: saveBatteryItem,
 };
 const UNDO_KEY_FNS = {
   serviceApply: undoStorageKey,
   batteryApply: batteryUndoStorageKey,
+  repairApply: repairUndoStorageKey,
 };
 
 async function handleOperationStatus(tabId, kind) {
@@ -776,6 +931,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         case 'batteryUndo':
           sendResponse(await handleBatteryUndo(tabId));
+          break;
+        case 'repairScan':
+          sendResponse(await handleRepairScan(tabId));
+          break;
+        case 'repairApply':
+          sendResponse(await handleRepairApply(tabId, message.items));
+          break;
+        case 'repairUndo':
+          sendResponse(await handleRepairUndo(tabId));
           break;
         case 'operationStatus':
           sendResponse(await handleOperationStatus(tabId, message.kind));
