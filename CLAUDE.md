@@ -31,13 +31,27 @@ reports, operated from a popup on the report's **Device Editor** page.
    Two selectable Inspection Profiles, **both enabled**: **Annual** and
    **Semi-Annual** (see below for how they differ). Preview / Apply / Undo.
 2. **Battery Cleanup** — normalizes Battery devices' Rated Voltage/Amps/
-   Post Test/Tested Ah formatting, clears Pre Test, recalculates Min Ah,
-   corrects Model Number, sets the Passed/Failed outcome from Inspection
-   Date + Tested Ah vs Min Ah, and propagates a proven failure across an
+   Post Test/Tested Ah formatting (Rated Voltage/Amps are the device's
+   fixed rated values, e.g. `12.00`/`26.00` — not test readings, and
+   always preserved as flat 2-decimal numbers), clears Pre Test, fills a
+   blank Post Test with a generated reading in `12.00`–`13.00` (the one
+   deliberate exception to every other field's never-invent rule — see
+   `docs/battery-cleanup-rules.md`; cosmetic only, never feeds the outcome
+   below), recalculates Min Ah, corrects Model Number, sets the
+   Passed/Failed outcome from Install Date + Tested Ah vs Min Ah — except a
+   `0.00` Post Test paired with `0.00` Tested Ah and no whole-word "flat"
+   marker anywhere (same 8 columns as the Heat Detector One Hitter scan),
+   which passes instead of fails (marks an already-replaced battery whose
+   new unit hasn't been re-tested yet; Install Date expiration still
+   independently applies) — and propagates a proven failure across an
    unambiguous matching Left/Right Battery pair. Universal (no Inspection
-   Profile). Preview / Apply / Undo, fully independent of Service Cleanup
-   (separate Undo history). Full rule reference:
-   `docs/battery-cleanup-rules.md`.
+   Profile). **Shares the same
+   Preview / Apply / Undo buttons as Service Cleanup** (no separate Battery
+   buttons in the popup — `popup.js`'s three buttons trigger both actions
+   back to back on every click) while staying architecturally independent
+   under the hood: separate checkpoint kinds, separate Undo history, a
+   Service-side pause/give-up never blocks the Battery half or vice versa.
+   Full rule reference: `docs/battery-cleanup-rules.md`.
 
 Both actions share one popup, one background service worker, one site
 adapter, and — critically — one paced write coordinator (see below).

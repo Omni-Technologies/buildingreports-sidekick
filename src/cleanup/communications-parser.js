@@ -36,8 +36,11 @@ export function isMonitoring(deviceType) {
 // identifiers recorded here): "Restored @ 11:29 AM 5/1/25", "Yes, 11:02
 // AM", "Yes, 6:11 AM". Tolerant of missing/extra spacing and lowercase
 // am/pm - never fuzzy about which digits are the time, just where the
-// whitespace/case falls.
-const TIME_PATTERN = /(\d{1,2}):(\d{2})\s*([AaPp]\.?[Mm]\.?)/;
+// whitespace/case falls. Also tolerates an optional `:SS` seconds group
+// (real technician entries have included one, e.g. "15:14:26 pm") so the
+// regex captures the whole H:MM:SS run instead of drifting onto the wrong
+// H:MM pair when seconds are present - see extractTime below.
+const TIME_PATTERN = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp]\.?[Mm]\.?)?/;
 const DATE_PATTERN = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b/;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -52,14 +55,27 @@ function asStr(value) {
 // it: no leading zero on the hour, minutes always 2 digits, uppercase
 // AM/PM, single space - matching the confirmed-live examples above.
 // Returns null when no plausible time is found (never invented).
+//
+// Also tolerates a bare 24-hour-clock hour (00, or 13-23) - confirmed live
+// a technician entry can read "15:14:26 pm" (24-hour time with a redundant
+// trailing am/pm marker and seconds). A 24-hour hour outside 1-12 is
+// unambiguous regardless of whether a marker follows it, so it's converted
+// straight to 12-hour form; an ordinary 1-12 hour still requires an
+// explicit am/pm marker nearby and is never guessed, same as before.
 function extractTime(text) {
   if (isBlank(text)) return null;
   const m = TIME_PATTERN.exec(String(text));
   if (!m) return null;
   const hour = Number(m[1]);
   const minute = Number(m[2]);
-  if (hour < 1 || hour > 12 || minute > 59) return null;
-  const ampm = m[3].toUpperCase().replace(/\./g, '');
+  if (hour > 23 || minute > 59) return null;
+
+  if (hour === 0) return `12:${String(minute).padStart(2, '0')} AM`;
+  if (hour >= 13) return `${hour - 12}:${String(minute).padStart(2, '0')} PM`;
+
+  const ampmRaw = m[3];
+  if (!ampmRaw) return null;
+  const ampm = ampmRaw.toUpperCase().replace(/\./g, '');
   return `${hour}:${String(minute).padStart(2, '0')} ${ampm}`;
 }
 

@@ -24,12 +24,28 @@ changes — it's meant to save a future session from re-deriving all of this.
   By <Company> <M>/<YY>`, applied identically under both profiles, with a
   popup manual-fix UI (`manualServiceFix` message) for the rare case an
   abbreviated company name still doesn't fit BuildingReports' 31-character
-  limit.
+  limit. Communicator/Communication Line/Monitoring's time extraction
+  (`communications-parser.js`) also recognizes a 24-hour-clock hour (e.g.
+  `15:14:26 pm`, a real-world reported example, or a bare `15:14`) and
+  converts it to 12-hour form, even alongside a redundant/mismatched am/pm
+  marker (2026-08-24).
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
-  Undo, independent Undo history from Service Cleanup, same write queue.
-  Full rule reference: `docs/battery-cleanup-rules.md`. 3-year expiration is
-  keyed off **Install Date** (changed 2026-08-06, replacing Inspection
-  Date entirely — see that doc's "Pass/Fail outcome" section).
+  Undo — **shares the same three popup buttons as Service Cleanup since
+  2026-08-24** (no longer separate buttons; `popup.js` triggers both
+  actions back to back on every click), while staying architecturally
+  independent: separate checkpoint kinds, independent Undo history from
+  Service Cleanup, same write queue. Full rule reference:
+  `docs/battery-cleanup-rules.md`. 3-year expiration is keyed off
+  **Install Date** (changed 2026-08-06, replacing Inspection Date entirely
+  — see that doc's "Pass/Fail outcome" section). Rated Voltage/Amps are
+  confirmed live to already be the battery's fixed rated values (flat
+  2-decimal numbers, e.g. `12.00`), not test readings. Blank Post Test is
+  filled with a generated `12.00`-`13.00` reading (2026-08-24, explicitly
+  requested — the one deliberate exception to this action's never-invent
+  rule, cosmetic only). A `0.00` Post Test + `0.00` Tested Ah together with
+  no "flat" marker anywhere is treated as an already-serviced/replaced
+  battery and passes rather than fails (2026-08-24) — Install Date
+  expiration still independently applies.
 - **Shared paced write queue** (`src/cleanup/write-queue.js`) — concurrency
   1, checkpointed to `chrome.storage.local`, rate-limit backoff + bounded
   retries + manual Resume, Pause / Cancel Remaining. Used by all four write
@@ -41,7 +57,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**190 tests, 0 failures** across `tests/*.test.js`
+**202 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `engine.test.js`, `semi-annual.test.js`,
 `third-party-service-parser.test.js`, `write-queue.test.js`). Synthetic
@@ -138,6 +154,41 @@ Comment/Solution/Note were already plain pass-through fields).
   clicking Undo during live testing).
 
 ## Most recent successful live verification
+
+**2026-08-24, a real report (no customer/report identifiers recorded
+here):**
+
+- **Popup UI merge:** one click of "Preview Cleanup" correctly ran Service
+  Cleanup and Battery Cleanup back to back and rendered both result panels
+  (228 devices; 6 real Batteries classified matching the real underlying
+  data). The combined "Apply Cleanup" confirm dialog correctly summarized
+  both halves (`"...1 Service field(s)...and 4 Battery device(s) (21
+  field(s) total)..."`), and Apply ran Service (1/1 saved) then Battery
+  (4/4 saved), zero failures either side. The new `undoStatus`-driven Undo
+  confirm correctly showed real entry counts (`"...restores 1 Service
+  field(s) and 4 Battery field(s)..."`), and Undo restored both (1/1, 4/4,
+  zero failures) - including exact restoration of a real pre-existing
+  replacement-history Note string on 2 Batteries.
+- **Blank Post Test generation:** a hand-blanked real Battery's Post Test
+  correctly generated a value in `[12.00, 13.00)` on Preview (`12.94`) and
+  a different value on the following Apply (`12.12`, matching the
+  documented "Apply re-classifies fresh" behavior) - verified written and
+  persisted directly against the live ExtJS grid.
+- **0.00/0.00 "already completed" placeholder exception:** before the fix,
+  Preview showed 2 Passing / 2 Date Expired / 2 Failed Load Test across the
+  6 real Batteries; after, 4 Passing / 2 Date Expired / 0 Failed Load Test
+  - the 2 previously-miscategorized real Batteries (Note already read
+  `"...Battery Replaced By ... - 8/6/25"`, no "flat" marker anywhere) now
+  correctly classify `alreadyCorrect` instead of being wrongly flagged to
+  overwrite their existing correct Passed state with Failed. Verified via
+  Preview only (no Apply needed - already correct, nothing to write).
+- Communicator's 24-hour time fix (`15:14:26 pm` -> `3:14 PM`) was unit-
+  tested only - the one real Communicator on this report was already
+  canonical, so there was no real 24-hour-formatted example to test
+  live against.
+- The report was left in its original, fully-consistent state afterward
+  (the hand-blanked Post Test was manually restored to its true original
+  `13.07` after Undo, since Undo only reverts to the hand-set test value).
 
 Verified end-to-end against a real, live BuildingReports report through
 Chrome DevTools MCP (no customer/report identifiers recorded here or

@@ -24,9 +24,6 @@ const discardBtn = document.getElementById('discardBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const cancelRemainingBtn = document.getElementById('cancelRemainingBtn');
 
-const batteryPreviewBtn = document.getElementById('batteryPreviewBtn');
-const batteryApplyBtn = document.getElementById('batteryApplyBtn');
-const batteryUndoBtn = document.getElementById('batteryUndoBtn');
 const batteryProgressSection = document.getElementById('batteryProgress');
 const batteryProgressText = document.getElementById('batteryProgressText');
 const batterySummarySection = document.getElementById('batterySummary');
@@ -37,10 +34,6 @@ const batteryExamplesList = document.getElementById('batteryExamplesList');
 const batteryOutcomeList = document.getElementById('batteryOutcomeList');
 const batteryOutcomeSummary = document.getElementById('batteryOutcomeSummary');
 const batteryFieldCountsList = document.getElementById('batteryFieldCountsList');
-const batteryConfirmBar = document.getElementById('batteryConfirmBar');
-const batteryConfirmText = document.getElementById('batteryConfirmText');
-const batteryConfirmYes = document.getElementById('batteryConfirmYes');
-const batteryConfirmNo = document.getElementById('batteryConfirmNo');
 const batteryResumeBar = document.getElementById('batteryResumeBar');
 const batteryResumeText = document.getElementById('batteryResumeText');
 const batteryResumeBtn = document.getElementById('batteryResumeBtn');
@@ -103,6 +96,7 @@ const BUCKET_LABELS = {
 const BATTERY_BUCKET_LABELS = {
   alreadyCorrect: 'Already correct',
   safeFormatting: 'Safe formatting change',
+  postTestGenerated: 'Post Test value generated (was blank)',
   minAhRecalculation: 'Min Ah recalculation',
   modelNumberCorrection: 'Model Number correction',
   preTestWillBeCleared: 'Pre Test will be cleared',
@@ -139,6 +133,7 @@ const BATTERY_COUNT_LABELS = {
   ampsFormattingChanges: 'Amps formatting changes',
   preTestCleared: 'Pre Test fields to clear',
   postTestFormattingChanges: 'Post Test formatting changes',
+  postTestGenerated: 'Post Test values generated (was blank)',
   minAhCorrections: 'Min Ah corrections',
   testedAhFormattingChanges: 'Tested Ah formatting changes',
   modelNumberCorrections: 'Model Number corrections',
@@ -160,15 +155,22 @@ function updateProfileActiveLabel() {
 profileSelect.addEventListener('change', updateProfileActiveLabel);
 updateProfileActiveLabel();
 
+// Battery Cleanup is no longer a separate button - Preview/Apply run both
+// Service and Battery Cleanup together (see previewBtn/applyBtn handlers
+// below), so Apply is enabled whenever EITHER side has a pending change,
+// not just Service.
+function hasServicePending() {
+  return !!(lastPreview && lastPreview.summary && lastPreview.summary.totalWouldChange > 0);
+}
+function hasBatteryPending() {
+  return !!(lastBatteryPreview && lastBatteryPreview.summary && lastBatteryPreview.summary.totalDevicesAffected > 0);
+}
+
 function setBusy(isBusy) {
   busy = isBusy;
   previewBtn.disabled = isBusy || !activeTabId;
-  applyBtn.disabled = isBusy || !lastPreview || !lastPreview.summary || lastPreview.summary.totalWouldChange === 0;
+  applyBtn.disabled = isBusy || !(hasServicePending() || hasBatteryPending());
   undoBtn.disabled = isBusy || !activeTabId;
-  batteryPreviewBtn.disabled = isBusy || !activeTabId;
-  batteryApplyBtn.disabled =
-    isBusy || !lastBatteryPreview || !lastBatteryPreview.summary || lastBatteryPreview.summary.totalDevicesAffected === 0;
-  batteryUndoBtn.disabled = isBusy || !activeTabId;
 }
 
 // Turns a background.js `progress` summary (see write-queue.js's
@@ -306,19 +308,6 @@ function showResumeBanner(bar, textEl, kind, progress) {
   bar.classList.remove('hidden');
 }
 
-// A fresh Apply/Undo is refused if a checkpoint of the same kind is already
-// sitting paused in storage (background.js's runNewOperation guard - see
-// docs/architecture.md), so the user doesn't accidentally lose an
-// interrupted run by starting a new one. Surface that clearly and refresh
-// the Resume banners rather than just showing a generic error.
-async function handleOperationAlreadyPaused(result) {
-  if (!result || result.error !== 'operation-already-paused') return false;
-  statusText.textContent = 'A previous run is still paused - use Resume or Cancel Remaining above before starting a new one.';
-  statusText.className = 'error';
-  await checkForResumableOperations();
-  return true;
-}
-
 function showDiagnostics(obj) {
   diagnostics.classList.remove('hidden');
   diagnosticsText.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
@@ -344,8 +333,6 @@ async function init() {
     setBusy(false);
     previewBtn.disabled = true;
     undoBtn.disabled = true;
-    batteryPreviewBtn.disabled = true;
-    batteryUndoBtn.disabled = true;
     return;
   }
   const modifyNote = result.canModify ? '' : ' (no modify permission detected)';
@@ -595,8 +582,32 @@ function askConfirm(text, yesLabel) {
   return askConfirmWith(confirmBar, confirmText, confirmYes, confirmNo, text, yesLabel);
 }
 
-function askBatteryConfirm(text, yesLabel) {
-  return askConfirmWith(batteryConfirmBar, batteryConfirmText, batteryConfirmYes, batteryConfirmNo, text, yesLabel);
+// Shared by the combined Apply flow's Service and Battery halves - see
+// previewBtn/applyBtn handlers below.
+function appendApplyResultBlock(targetEl, result) {
+  const extra = [
+    `Saved: ${result.applied.length}`,
+    `Save failures: ${result.failed.length}`,
+    result.undoAvailable ? 'Undo is available for this run.' : 'Nothing to undo (no changes were saved).',
+  ];
+  if (result.gaveUp) {
+    extra.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue.');
+  } else if (result.cancelled) {
+    extra.push('Cancelled - remaining changes were not applied. Already-saved changes remain and are covered by Undo.');
+  }
+  targetEl.innerHTML += '<div style="margin-top:6px;font-weight:600;">Apply result</div>' + extra.map((l) => `<div>${l}</div>`).join('');
+  if (result.failed.length) showDiagnostics(result.failed);
+}
+
+// A fresh Apply/Undo is refused if a checkpoint of the same kind is already
+// sitting paused in storage (background.js's runNewOperation guard - see
+// docs/architecture.md). Pure check (no side effects) so the combined
+// Apply/Undo flow can test both the Service and Battery half without one
+// call's statusText clobbering the other's - see the applyBtn/undoBtn
+// handlers below for how the combined error message and
+// checkForResumableOperations() refresh are built from this.
+function isAlreadyPausedError(result) {
+  return !!(result && result.error === 'operation-already-paused');
 }
 
 function escapeHtml(str) {
@@ -653,11 +664,18 @@ reviewList.addEventListener('click', async (event) => {
   setBusy(false);
 });
 
+// Preview now runs Service Cleanup and Battery Cleanup back to back on
+// every click - Battery Cleanup is no longer a separate button (see
+// docs/battery-cleanup-rules.md / docs/cleanup-rules.md: it's universal and
+// applies identically regardless of which Inspection Profile is selected).
+// Sequential (not parallel) so only one progress line is visible at a time;
+// both are read-only, so an error on one side doesn't need to block the
+// other.
 previewBtn.addEventListener('click', async () => {
   setBusy(true);
-  showProgress('Scanning entire report (this does not modify anything)...');
   diagnostics.classList.add('hidden');
   try {
+    showProgress('Scanning entire report for Service Cleanup (this does not modify anything)...');
     const result = await sendMessage({ type: 'preview', profileKey: profileSelect.value });
     hideProgress();
     if (!result || !result.found) {
@@ -668,207 +686,196 @@ previewBtn.addEventListener('click', async () => {
     }
     lastPreview = result;
     renderSummary(result.summary);
+
+    showBatteryProgress('Scanning entire report for Battery devices (this does not modify anything)...');
+    const batteryResult = await sendMessage({ type: 'batteryPreview' });
+    hideBatteryProgress();
+    if (batteryResult && batteryResult.found) {
+      lastBatteryPreview = batteryResult;
+      renderBatterySummary(batteryResult.summary);
+    }
   } catch (err) {
     hideProgress();
+    hideBatteryProgress();
     showDiagnostics(String(err));
   }
   setBusy(false);
 });
 
+// Apply, likewise, writes Service Cleanup's safe changes and then Battery
+// Cleanup's - two separate paced-queue runs under two separate checkpoint
+// kinds (serviceApply/batteryApply, each with its own Undo history, exactly
+// as before - see CLAUDE.md "The shared paced write queue"), just triggered
+// by one click and one confirmation instead of two. Battery still runs even
+// if the Service half hit a rate-limit give-up or an already-paused
+// checkpoint - they're fully independent write paths, and blocking Battery
+// on an unrelated Service pause would be a new, unwanted coupling.
 applyBtn.addEventListener('click', async () => {
-  if (!lastPreview || !lastPreview.summary) return;
-  const n = lastPreview.summary.totalWouldChange;
+  const serviceN = hasServicePending() ? lastPreview.summary.totalWouldChange : 0;
+  const batteryDevices = hasBatteryPending() ? lastBatteryPreview.summary.totalDevicesAffected : 0;
+  const batteryFields = hasBatteryPending() ? lastBatteryPreview.summary.totalFieldsAffected : 0;
+  if (serviceN === 0 && batteryDevices === 0) return;
+
   const profileLabel = profileSelect.options[profileSelect.selectedIndex].text;
-  const pacedNote = n > LARGE_OPERATION_THRESHOLD ? ' BuildingReports saves each device separately, so this will run through a paced queue (one at a time) and may take a while.' : '';
+  const parts = [];
+  if (serviceN > 0) parts.push(`${serviceN} Service field(s) under the "${profileLabel}" profile`);
+  if (batteryDevices > 0) parts.push(`${batteryDevices} Battery device(s) (${batteryFields} field(s) total)`);
+  const pacedNote =
+    serviceN + batteryDevices > LARGE_OPERATION_THRESHOLD
+      ? ' BuildingReports saves each device separately, so this will run through a paced queue (one at a time) and may take a while.'
+      : '';
   const confirmed = await askConfirm(
-    `Apply "${profileLabel}" cleanup to ${n} Service field(s)? Only entries classified as safe to change will be touched.${pacedNote}`,
+    `Apply cleanup to ${parts.join(' and ')}? Only entries classified as safe to change will be touched.${pacedNote}`,
     'Apply'
   );
   if (!confirmed) return;
 
   setBusy(true);
-  showProgress(`Applying ${n} change(s) and verifying saves...`, 'serviceApply');
   diagnostics.classList.add('hidden');
+  let anyAlreadyPaused = false;
+  const errorMessages = [];
   try {
-    const result = await sendMessage({ type: 'apply', profileKey: profileSelect.value });
-    hideProgress();
-    if (!result || !result.ok) {
-      if (!(await handleOperationAlreadyPaused(result))) {
-        statusText.textContent = `Apply failed: ${(result && result.error) || 'unknown error'}`;
-        statusText.className = 'error';
-        showDiagnostics(result);
+    if (serviceN > 0) {
+      showProgress(`Applying ${serviceN} Service change(s) and verifying saves...`, 'serviceApply');
+      const serviceResult = await sendMessage({ type: 'apply', profileKey: profileSelect.value });
+      hideProgress();
+      if (serviceResult && serviceResult.ok) {
+        renderSummary(serviceResult.summary);
+        appendApplyResultBlock(summaryText, serviceResult);
+      } else if (isAlreadyPausedError(serviceResult)) {
+        anyAlreadyPaused = true;
+      } else {
+        errorMessages.push(`Service Apply failed: ${(serviceResult && serviceResult.error) || 'unknown error'}`);
+        showDiagnostics(serviceResult);
       }
-      setBusy(false);
-      return;
     }
-    renderSummary(result.summary);
-    const extra = [
-      `Saved: ${result.applied.length}`,
-      `Save failures: ${result.failed.length}`,
-      result.undoAvailable ? 'Undo is available for this run.' : 'Nothing to undo (no changes were saved).',
-    ];
-    if (result.gaveUp) {
-      extra.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue.');
-    } else if (result.cancelled) {
-      extra.push('Cancelled - remaining changes were not applied. Already-saved changes remain and are covered by Undo.');
-    }
-    summaryText.innerHTML += '<div style="margin-top:6px;font-weight:600;">Apply result</div>' + extra.map((l) => `<div>${l}</div>`).join('');
-    if (result.failed.length) {
-      showDiagnostics(result.failed);
-    }
-  } catch (err) {
-    hideProgress();
-    showDiagnostics(String(err));
-  }
-  setBusy(false);
-});
 
-undoBtn.addEventListener('click', async () => {
-  const confirmed = await askConfirm('Undo the last cleanup run on this report?', 'Undo');
-  if (!confirmed) return;
-  setBusy(true);
-  showProgress('Restoring previous values...', 'serviceUndo');
-  diagnostics.classList.add('hidden');
-  try {
-    const result = await sendMessage({ type: 'undo' });
-    hideProgress();
-    if (!result || !result.ok) {
-      if (!(await handleOperationAlreadyPaused(result))) {
-        statusText.textContent = `Undo: ${(result && result.error) || 'unknown error'}`;
-        statusText.className = result && result.error === 'nothing-to-undo' ? 'ok' : 'error';
+    if (batteryDevices > 0) {
+      showBatteryProgress(`Applying changes to ${batteryDevices} Battery device(s) and verifying saves...`, 'batteryApply');
+      const batteryResult = await sendMessage({ type: 'batteryApply' });
+      hideBatteryProgress();
+      if (batteryResult && batteryResult.ok) {
+        renderBatterySummary(batteryResult.summary);
+        appendApplyResultBlock(batterySummaryText, batteryResult);
+      } else if (isAlreadyPausedError(batteryResult)) {
+        anyAlreadyPaused = true;
+      } else {
+        errorMessages.push(`Battery Apply failed: ${(batteryResult && batteryResult.error) || 'unknown error'}`);
+        showDiagnostics(batteryResult);
       }
-      setBusy(false);
-      return;
     }
-    summarySection.classList.remove('hidden');
-    const lines = [
-      `Restored: ${result.restored.length}`,
-      `Failed: ${result.failed.length}`,
-      `Total tracked: ${result.total}`,
-    ];
-    if (result.gaveUp) {
-      lines.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue undoing.');
-    } else if (result.cancelled) {
-      lines.push('Cancelled - remaining entries were left tracked for a later Undo.');
-    }
-    summaryText.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
-    reviewList.innerHTML = '';
-    examplesList.innerHTML = '';
-    if (result.failed.length) showDiagnostics(result.failed);
-  } catch (err) {
-    hideProgress();
-    showDiagnostics(String(err));
-  }
-  setBusy(false);
-});
 
-batteryPreviewBtn.addEventListener('click', async () => {
-  setBusy(true);
-  showBatteryProgress('Scanning entire report for Battery devices (this does not modify anything)...');
-  diagnostics.classList.add('hidden');
-  try {
-    const result = await sendMessage({ type: 'batteryPreview' });
-    hideBatteryProgress();
-    if (!result || !result.found) {
-      statusText.textContent = 'Report no longer found on this tab.';
+    if (anyAlreadyPaused) {
+      await checkForResumableOperations();
+      errorMessages.unshift('A previous run is still paused - use Resume or Cancel Remaining above before starting a new one.');
+    }
+    if (errorMessages.length > 0) {
+      statusText.textContent = errorMessages.join(' ');
       statusText.className = 'error';
-      setBusy(false);
-      return;
     }
-    lastBatteryPreview = result;
-    renderBatterySummary(result.summary);
   } catch (err) {
+    hideProgress();
     hideBatteryProgress();
     showDiagnostics(String(err));
   }
   setBusy(false);
 });
 
-batteryApplyBtn.addEventListener('click', async () => {
-  if (!lastBatteryPreview || !lastBatteryPreview.summary) return;
-  const devices = lastBatteryPreview.summary.totalDevicesAffected;
-  const fields = lastBatteryPreview.summary.totalFieldsAffected;
-  const pacedNote = devices > LARGE_OPERATION_THRESHOLD ? ' BuildingReports saves each device separately, so this will run through a paced queue (one at a time) and may take a while.' : '';
-  const confirmed = await askBatteryConfirm(
-    `Apply Battery Cleanup to ${devices} device(s), ${fields} field(s) total? Only entries classified as safe to change will be touched.${pacedNote}`,
-    'Apply'
+// Undo restores both Service and Battery Cleanup's last accumulated Undo
+// history in one click (each through its own checkpoint kind/history, same
+// as Apply above). Fetches real entry counts from storage first and shows
+// them in the confirmation - CLAUDE.md's "Definition of done" calls out
+// checking chrome.storage.local's entry count before clicking Undo (a past
+// incident silently merged 104 leftover entries into a 3-item run); this
+// makes that check automatic instead of a manual step during live testing.
+undoBtn.addEventListener('click', async () => {
+  setBusy(true);
+  const status = await sendMessage({ type: 'undoStatus' });
+  setBusy(false);
+  if (!status || !status.found) {
+    statusText.textContent = 'Report no longer found on this tab.';
+    statusText.className = 'error';
+    return;
+  }
+  const serviceCount = status.serviceEntries || 0;
+  const batteryCount = status.batteryEntries || 0;
+  if (serviceCount === 0 && batteryCount === 0) {
+    statusText.textContent = 'Nothing to undo.';
+    statusText.className = 'ok';
+    return;
+  }
+  const parts = [];
+  if (serviceCount > 0) parts.push(`${serviceCount} Service field(s)`);
+  if (batteryCount > 0) parts.push(`${batteryCount} Battery field(s)`);
+  const confirmed = await askConfirm(
+    `Undo the last cleanup run on this report? This restores ${parts.join(' and ')} to their prior values.`,
+    'Undo'
   );
   if (!confirmed) return;
 
   setBusy(true);
-  showBatteryProgress(`Applying changes to ${devices} Battery device(s) and verifying saves...`, 'batteryApply');
   diagnostics.classList.add('hidden');
+  let anyAlreadyPaused = false;
+  const errorMessages = [];
   try {
-    const result = await sendMessage({ type: 'batteryApply' });
-    hideBatteryProgress();
-    if (!result || !result.ok) {
-      if (!(await handleOperationAlreadyPaused(result))) {
-        statusText.textContent = `Battery Apply failed: ${(result && result.error) || 'unknown error'}`;
-        statusText.className = 'error';
-        showDiagnostics(result);
+    if (serviceCount > 0) {
+      showProgress('Restoring previous Service values...', 'serviceUndo');
+      const serviceResult = await sendMessage({ type: 'undo' });
+      hideProgress();
+      if (serviceResult && serviceResult.ok) {
+        renderUndoResultBlock(summarySection, summaryText, reviewList, examplesList, serviceResult);
+      } else if (isAlreadyPausedError(serviceResult)) {
+        anyAlreadyPaused = true;
+      } else if (serviceResult && serviceResult.error !== 'nothing-to-undo') {
+        errorMessages.push(`Service Undo failed: ${(serviceResult && serviceResult.error) || 'unknown error'}`);
       }
-      setBusy(false);
-      return;
     }
-    renderBatterySummary(result.summary);
-    const extra = [
-      `Saved: ${result.applied.length}`,
-      `Save failures: ${result.failed.length}`,
-      result.undoAvailable ? 'Undo is available for this run.' : 'Nothing to undo (no changes were saved).',
-    ];
-    if (result.gaveUp) {
-      extra.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue.');
-    } else if (result.cancelled) {
-      extra.push('Cancelled - remaining changes were not applied. Already-saved changes remain and are covered by Undo.');
+
+    if (batteryCount > 0) {
+      showBatteryProgress('Restoring previous Battery values...', 'batteryUndo');
+      const batteryResult = await sendMessage({ type: 'batteryUndo' });
+      hideBatteryProgress();
+      if (batteryResult && batteryResult.ok) {
+        renderUndoResultBlock(batterySummarySection, batterySummaryText, batteryReviewList, batteryExamplesList, batteryResult);
+      } else if (isAlreadyPausedError(batteryResult)) {
+        anyAlreadyPaused = true;
+      } else if (batteryResult && batteryResult.error !== 'nothing-to-undo') {
+        errorMessages.push(`Battery Undo failed: ${(batteryResult && batteryResult.error) || 'unknown error'}`);
+      }
     }
-    batterySummaryText.innerHTML += '<div style="margin-top:6px;font-weight:600;">Apply result</div>' + extra.map((l) => `<div>${l}</div>`).join('');
-    if (result.failed.length) {
-      showDiagnostics(result.failed);
+
+    if (anyAlreadyPaused) {
+      await checkForResumableOperations();
+      errorMessages.unshift('A previous run is still paused - use Resume or Cancel Remaining above before starting a new one.');
+    }
+    if (errorMessages.length > 0) {
+      statusText.textContent = errorMessages.join(' ');
+      statusText.className = 'error';
     }
   } catch (err) {
+    hideProgress();
     hideBatteryProgress();
     showDiagnostics(String(err));
   }
   setBusy(false);
 });
 
-batteryUndoBtn.addEventListener('click', async () => {
-  const confirmed = await askBatteryConfirm('Undo the last Battery Cleanup run on this report?', 'Undo');
-  if (!confirmed) return;
-  setBusy(true);
-  showBatteryProgress('Restoring previous Battery values...', 'batteryUndo');
-  diagnostics.classList.add('hidden');
-  try {
-    const result = await sendMessage({ type: 'batteryUndo' });
-    hideBatteryProgress();
-    if (!result || !result.ok) {
-      if (!(await handleOperationAlreadyPaused(result))) {
-        statusText.textContent = `Battery Undo: ${(result && result.error) || 'unknown error'}`;
-        statusText.className = result && result.error === 'nothing-to-undo' ? 'ok' : 'error';
-      }
-      setBusy(false);
-      return;
-    }
-    batterySummarySection.classList.remove('hidden');
-    const lines = [
-      `Restored: ${result.restored.length}`,
-      `Failed: ${result.failed.length}`,
-      `Total tracked: ${result.total}`,
-    ];
-    if (result.gaveUp) {
-      lines.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue undoing.');
-    } else if (result.cancelled) {
-      lines.push('Cancelled - remaining entries were left tracked for a later Undo.');
-    }
-    batterySummaryText.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
-    batteryReviewList.innerHTML = '';
-    batteryExamplesList.innerHTML = '';
-    if (result.failed.length) showDiagnostics(result.failed);
-  } catch (err) {
-    hideBatteryProgress();
-    showDiagnostics(String(err));
+function renderUndoResultBlock(sectionEl, textEl, reviewListEl, examplesListEl, result) {
+  sectionEl.classList.remove('hidden');
+  const lines = [
+    `Restored: ${result.restored.length}`,
+    `Failed: ${result.failed.length}`,
+    `Total tracked: ${result.total}`,
+  ];
+  if (result.gaveUp) {
+    lines.push('Paused - BuildingReports is limiting requests. Reopen the popup and click Resume to continue undoing.');
+  } else if (result.cancelled) {
+    lines.push('Cancelled - remaining entries were left tracked for a later Undo.');
   }
-  setBusy(false);
-});
+  textEl.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+  reviewListEl.innerHTML = '';
+  examplesListEl.innerHTML = '';
+  if (result.failed.length) showDiagnostics(result.failed);
+}
 
 init();

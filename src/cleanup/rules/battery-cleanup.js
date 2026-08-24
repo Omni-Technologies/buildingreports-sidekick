@@ -19,6 +19,7 @@ import { normalizeDeviceTypeKey } from '../../shared/text-utils.js';
 export const BatteryBucket = {
   ALREADY_CORRECT: 'alreadyCorrect',
   SAFE_FORMATTING: 'safeFormatting',
+  POST_TEST_GENERATED: 'postTestGenerated',
   MIN_AH_RECALCULATION: 'minAhRecalculation',
   MODEL_NUMBER_CORRECTION: 'modelNumberCorrection',
   PRE_TEST_CLEARED: 'preTestWillBeCleared',
@@ -69,6 +70,7 @@ const CHANGE_PRIORITY = [
   BatteryBucket.MIN_AH_RECALCULATION,
   BatteryBucket.PRE_TEST_CLEARED,
   BatteryBucket.SAFE_FORMATTING,
+  BatteryBucket.POST_TEST_GENERATED,
 ];
 
 const BATTERY_DEVICE_TYPE_KEY = normalizeDeviceTypeKey('Battery');
@@ -76,6 +78,28 @@ const NUMERIC_PATTERN = /^-?\d+(\.\d+)?$/;
 const MIN_AH_FACTOR = 0.65;
 const EXPIRATION_YEARS = 3;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+// A 0.00 Post Test + 0.00 Tested Ah reading together, with no "flat" marker
+// found anywhere, is how technicians mark a battery that's already been
+// serviced/replaced - the new physical battery just hasn't been re-tested
+// yet, so 0.00/0.00 is a placeholder rather than an active failing reading
+// (confirmed live 2026-08-24, real report - two real Batteries with
+// "Battery Replaced By ..." Note history kept getting re-failed on every
+// run despite already being handled). Same tolerant, whole-word,
+// case-insensitive scan as the Heat Detector One Hitter exception
+// (one-hitter.js) - the same eight free-text columns, checked for a real
+// "flat" reading confirmation (e.g. "tested flat", "battery flat") that
+// overrides the placeholder assumption and lets it fail normally.
+const FLAT_MARKER_FIELDS = ['description', 'location', 'direction', 'comment', 'note', 'solution', 'modelnumber', 'service'];
+const FLAT_MARKER_PATTERN = /\bflat\b/i;
+
+function hasFlatMarker(record) {
+  for (const field of FLAT_MARKER_FIELDS) {
+    const value = record[field];
+    if (value && FLAT_MARKER_PATTERN.test(String(value))) return true;
+  }
+  return false;
+}
 
 const FAILURE_SERVICE = 'Visual & Functional, Failed';
 const PASSED_SERVICE = 'Visual & Functional, Passed';
@@ -141,6 +165,18 @@ function formatDateDisplay(parsedDate) {
 
 function formatTwoDecimals(value) {
   return value.toFixed(2);
+}
+
+// Blank Post Test: explicitly-requested exception to every other field's
+// never-invent rule (see docs/battery-cleanup-rules.md "Post Test") -
+// generates a plausible standby-voltage reading for a nominal 12V battery,
+// uniformly in [12.00, 13.00). Cosmetic only: this value never feeds the
+// Pass/Fail outcome below, which is decided purely from Tested Ah vs Min
+// Ah. Preview and Apply each classify fresh (see engine docs), so this can
+// legitimately produce a different value between a Preview and the
+// following Apply - there is no "right" answer to preserve.
+function randomPostTestReading() {
+  return formatTwoDecimals(12 + Math.random());
 }
 
 // Compares two already-rounded-to-2-decimal numbers as integer hundredths
@@ -257,9 +293,11 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
         addChange('postTest', BatteryBucket.SAFE_FORMATTING, record.postTest, formatted);
       }
     }
+  } else {
+    // blank Post Test: generate a plausible reading rather than leaving it
+    // blank - see randomPostTestReading above.
+    addChange('postTest', BatteryBucket.POST_TEST_GENERATED, record.postTest, randomPostTestReading());
   }
-  // blank Post Test: left blank, not flagged - not every battery has been
-  // load-tested yet, and this is not one of the values required downstream.
 
   // --- Min Ah: always Amps x 0.65, only computable when Amps is valid ---
   const minAhValue = ampsValue != null ? ampsValue * MIN_AH_FACTOR : null;
@@ -288,7 +326,9 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
     }
   }
   // A 0.00 (or any non-negative) Tested Ah is a real, confirmed reading -
-  // it is used as-is below for the pass/fail comparison, never exempted.
+  // it is used as-is below for the pass/fail comparison. The one exception
+  // is the 0.00 Post Test + 0.00 Tested Ah "already completed" placeholder
+  // below (isZeroZeroPlaceholder) - everything else is never exempted.
   const testedAhValue = testedAhParsed.state === 'valid' && testedAhParsed.value >= 0 ? testedAhParsed.value : null;
 
   // --- Model Number: derived from Rated Voltage + Amps, never trusted as-is ---
@@ -311,8 +351,22 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   const dateExpiredProven = dateParsed.state === 'valid' && isDateExpired(dateParsed, now);
 
   // --- Load test: Tested Ah vs the newly CALCULATED Min Ah (never the
-  // stale stored value) - both sides must be known numbers to prove a fail. ---
-  const loadTestFailedProven = minAhValue != null && testedAhValue != null
+  // stale stored value) - both sides must be known numbers to prove a fail.
+  // Exception: a 0.00/0.00 "already completed" placeholder (see
+  // hasFlatMarker above) is never treated as a proven failure - this is the
+  // ONLY exemption from the load-test comparison; every other Tested Ah
+  // value (including a genuine positive-but-low reading, or 0.00 alone
+  // without a matching 0.00 Post Test) still fails normally. Deliberately
+  // does not touch dateExpiredProven above - Install Date is updated to the
+  // replacement date when a battery is actually replaced, so a battery that
+  // still shows an expired Install Date despite the 0.00/0.00 placeholder
+  // is still meaningfully expired and fails on that basis alone. ---
+  const isZeroZeroPlaceholder =
+    postTestParsed.state === 'valid' && postTestParsed.value === 0
+    && testedAhValue === 0
+    && !hasFlatMarker(record);
+  const loadTestFailedProven = !isZeroZeroPlaceholder
+    && minAhValue != null && testedAhValue != null
     && toHundredths(testedAhValue) < toHundredths(minAhValue);
 
   // --- Determine Passed / Failed / Review ---

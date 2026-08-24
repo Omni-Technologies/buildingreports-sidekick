@@ -58,6 +58,30 @@ test('Communicator blank Service is left untouched', () => {
   assert.equal(r.bucket, 'blank');
 });
 
+test('Communicator 24-hour time with a redundant trailing am/pm marker and seconds is recognized', () => {
+  const r = classifyCommunicatorRecord(
+    makeRecord({ devicetype: 'Communicator', service: '8/10/26 15:14:26 pm', restoreTime: '' })
+  );
+  assert.equal(r.bucket, 'safeChange');
+  assert.equal(r.after, 'Restored @ 3:14 PM 8/10/26');
+  assert.equal(extraField(r, 'restoreTime').after, '3:14 PM');
+});
+
+test('Communicator bare 24-hour time with no am/pm marker at all is still recognized', () => {
+  const r = classifyCommunicatorRecord(
+    makeRecord({ devicetype: 'Communicator', service: 'Restored @ 15:14 8/10/26' })
+  );
+  assert.equal(r.bucket, 'safeChange');
+  assert.equal(r.after, 'Restored @ 3:14 PM 8/10/26');
+});
+
+test('Communicator 24-hour midnight hour (00:xx) converts to 12:xx AM', () => {
+  const r = classifyCommunicatorRecord(
+    makeRecord({ devicetype: 'Communicator', service: 'Restored @ 00:05 8/10/26' })
+  );
+  assert.equal(r.after, 'Restored @ 12:05 AM 8/10/26');
+});
+
 test('Communicator with correct Service text but a stale Restore Time still needs the attribute synced', () => {
   const r = classifyCommunicatorRecord(
     makeRecord({ devicetype: 'Communicator', service: 'Restored @ 11:29 AM 5/1/25', restoreTime: '9:00 AM' })

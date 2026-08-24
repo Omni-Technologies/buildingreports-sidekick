@@ -23,13 +23,24 @@ const FIELD_TO_COUNT_KEY = {
   note: 'noteChanges',
 };
 
-// The 7 "attribute" fields (as opposed to the 5 pass/fail outcome fields
+// Post Test is the one field that can land in two different count buckets
+// depending on *why* it changed - reformatting an existing reading
+// (postTest -> postTestFormattingChanges above) vs. generating a value for
+// a blank one (BatteryBucket.POST_TEST_GENERATED here), so Preview can show
+// technicians which Post Test numbers are real readings and which were
+// fabricated. Checked before the field-based map above.
+const BUCKET_TO_COUNT_KEY = {
+  [BatteryBucket.POST_TEST_GENERATED]: 'postTestGenerated',
+};
+
+// The 8 "attribute" fields (as opposed to the 5 pass/fail outcome fields
 // above) - used to derive Preview's single "Battery attribute changes" total.
 const ATTRIBUTE_COUNT_KEYS = [
   'ratedVoltageFormattingChanges',
   'ampsFormattingChanges',
   'preTestCleared',
   'postTestFormattingChanges',
+  'postTestGenerated',
   'minAhCorrections',
   'testedAhFormattingChanges',
   'modelNumberCorrections',
@@ -58,7 +69,9 @@ export function runBatteryCleanup(records, now = new Date()) {
   const results = applyPairedFailures(records, initialResults, now);
   const batteryResults = results.filter((r) => r.isBattery);
 
-  const counts = Object.fromEntries(Object.values(FIELD_TO_COUNT_KEY).map((k) => [k, 0]));
+  const counts = Object.fromEntries(
+    [...Object.values(FIELD_TO_COUNT_KEY), ...Object.values(BUCKET_TO_COUNT_KEY)].map((k) => [k, 0])
+  );
 
   let alreadyCorrect = 0;
   let devicesRequiringReview = 0;
@@ -97,7 +110,7 @@ export function runBatteryCleanup(records, now = new Date()) {
     }
 
     for (const fc of r.fieldChanges) {
-      counts[FIELD_TO_COUNT_KEY[fc.field]] += 1;
+      counts[BUCKET_TO_COUNT_KEY[fc.bucket] || FIELD_TO_COUNT_KEY[fc.field]] += 1;
       totalFieldsAffected += 1;
     }
 

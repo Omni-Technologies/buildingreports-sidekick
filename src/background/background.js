@@ -418,6 +418,27 @@ async function handleUndo(tabId) {
   }
 }
 
+// Read-only entry-count peek for both Undo histories (Service + Battery),
+// used by the popup's combined Undo confirmation so a technician sees
+// exactly how much will be restored before clicking Undo - see
+// docs/architecture.md's Undo section and CLAUDE.md's "Definition of done"
+// step 5 on checking chrome.storage.local's entry count first.
+async function handleUndoStatus(tabId) {
+  const host = await detectReport(tabId);
+  if (!host) return { found: false };
+  const inspectionId = host.meta.inspectionId;
+  const serviceKey = undoStorageKey(inspectionId);
+  const batteryKey = batteryUndoStorageKey(inspectionId);
+  const stored = await chrome.storage.local.get([serviceKey, batteryKey]);
+  const serviceRecord = stored[serviceKey];
+  const batteryRecord = stored[batteryKey];
+  return {
+    found: true,
+    serviceEntries: (serviceRecord && serviceRecord.entries && serviceRecord.entries.length) || 0,
+    batteryEntries: (batteryRecord && batteryRecord.entries && batteryRecord.entries.length) || 0,
+  };
+}
+
 // Manual fix for a third-party serviced device (Air Pressure Switch/Tamper
 // Switch/Waterflow Switch/Kitchen Hood) whose abbreviated company name
 // still didn't fit BuildingReports' 31-character Service limit - see
@@ -740,6 +761,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         case 'undo':
           sendResponse(await handleUndo(tabId));
+          break;
+        case 'undoStatus':
+          sendResponse(await handleUndoStatus(tabId));
           break;
         case 'manualServiceFix':
           sendResponse(await handleManualServiceFix(tabId, message.scannumber, message.newValue));

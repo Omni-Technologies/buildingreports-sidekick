@@ -41,6 +41,12 @@ select {
   color: #3a3a3a;
 }
 
+.hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #666;
+}
+
 .actions {
   display: flex;
   gap: 6px;

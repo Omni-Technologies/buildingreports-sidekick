@@ -21,6 +21,7 @@
       <option value="semi-annual">Semi-Annual</option>
     </select>
     <div id="profileActive"></div>
+    <div class="hint">Battery Cleanup rules run automatically alongside Service Cleanup, the same way under either profile.</div>
   </section>
 
   <section class="panel actions">
@@ -64,28 +65,6 @@
       <summary>Before / after examples</summary>
       <div id="examplesList"></div>
     </details>
-  </section>
-
-  <header>
-    <h1>Battery Cleanup</h1>
-  </header>
-
-  <section class="panel">
-    <div>Universal - applies to Battery devices in any report, regardless of Annual/Semi-Annual.</div>
-  </section>
-
-  <section class="panel actions">
-    <button id="batteryPreviewBtn" disabled>Preview Battery Cleanup</button>
-    <button id="batteryApplyBtn" disabled>Apply Battery Cleanup</button>
-    <button id="batteryUndoBtn" disabled>Undo Last Battery Cleanup</button>
-  </section>
-
-  <section id="batteryConfirmBar" class="panel hidden">
-    <div id="batteryConfirmText"></div>
-    <div class="actions" style="margin-top:6px;">
-      <button id="batteryConfirmYes"></button>
-      <button id="batteryConfirmNo">Cancel</button>
-    </div>
   </section>
 
   <section id="batteryResumeBar" class="panel hidden">

@@ -45,8 +45,21 @@ explicitly says so.
   Install Date, and (same day, second revision) the new Annual Heat
   Detector Restorable field and Third-Party Serviced Devices
   Comment/Solution/Note fields.
-- **Unreleased notes**: empty — everything below was just built into
-  0.1.4.
+- **Unreleased notes (2026-08-24, not yet packaged into a release)**:
+  Battery Cleanup merged into Service Cleanup's Preview/Apply/Undo buttons
+  (no separate Battery buttons in the popup anymore, though the underlying
+  actions stay fully independent - checkpoints, Undo history, write
+  queue); a new `undoStatus` message so the combined Undo confirmation
+  shows real Service/Battery entry counts before restoring; Communicator's
+  time parser now recognizes a 24-hour-clock hour (e.g. `15:14:26 pm`) and
+  converts it to 12-hour form; blank Battery Post Test is now filled with
+  a generated `12.00`-`13.00` reading (cosmetic only); a `0.00` Post Test +
+  `0.00` Tested Ah with no "flat" marker anywhere now passes instead of
+  fails (marks an already-replaced battery, not a genuine failure) -
+  Install Date expiration still independently applies. No manifest
+  permission changes; no privacy-disclosure changes (no new data read,
+  stored, or transmitted - see `PRIVACY.md`'s already-listed Battery
+  attribute fields, which already cover Post Test).
 - **0.1.4 release notes**: see `CHANGELOG.md`'s `## [0.1.4]` section
   (Annual Heat Detector Restorable rule; Third-Party Serviced Devices
   rule; Communicator/Communication Line/Monitoring rules; Battery Cleanup

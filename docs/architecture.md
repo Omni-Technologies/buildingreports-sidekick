@@ -268,6 +268,19 @@ discard the stored key entirely once the report's data is confirmed
 correct instead of leaving stale reversible-to-wrong entries sitting in
 storage for a future session to trip over.
 
+**Added 2026-08-24: the popup does this check automatically now.**
+`background.js`'s `undoStatus` message (`handleUndoStatus`) is a read-only
+peek at both storage keys' `entries.length` - `popup.js`'s "Undo Last
+Cleanup" click handler calls it before showing the confirm dialog, so the
+confirmation always states the real current entry counts ("This restores N
+Service field(s) and M Battery field(s)...") instead of a generic "Undo the
+last cleanup run?" with no numbers. This makes the manual check above
+automatic for normal use, but doesn't change the underlying behavior it's
+warning about - Undo still reverts the *entire* accumulated history for
+each kind, not just one run, so an unexpectedly large N/M in that
+confirmation is still the signal to stop and investigate rather than click
+through.
+
 ## Battery Cleanup: a second, universal cleanup action
 
 Battery Cleanup (`src/cleanup/rules/battery-cleanup.js` +
@@ -309,6 +322,18 @@ Service Entries, not a variant of it - added by following
   by both actions - and both go through the exact same
   `cleanup/write-queue.js` coordinator from `background.js` (see
   "Throttled write queue" above), just with different `saveItemFn`s.
+- **UI note (changed 2026-08-24):** Battery Cleanup no longer has its own
+  Preview/Apply/Undo buttons in the popup - `previewBtn`/`applyBtn`/
+  `undoBtn` in `popup.js` now trigger the Service Cleanup message (`preview`/
+  `apply`/`undo`) and then the Battery Cleanup message (`batteryPreview`/
+  `batteryApply`/`batteryUndo`) sequentially on every click, rendering both
+  summary panels. This is a UI-only merge - background.js is completely
+  unchanged by it, and everything above (separate checkpoint kinds,
+  separate Undo storage keys/history, independent write-queue runs) is
+  still exactly as independent as before. A Service-side rate-limit
+  give-up or already-paused checkpoint does not block the Battery half from
+  running (and vice versa) - see the applyBtn/undoBtn handlers in
+  `popup.js`.
 
 ## Data flow for "process the entire report"
 

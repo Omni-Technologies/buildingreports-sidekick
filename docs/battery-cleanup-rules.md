@@ -51,11 +51,16 @@ the adapter already does) is equivalent to editing it through that panel.
 
 ### Rated Voltage / Amps
 
+These are the battery's fixed **rated** values (what's printed on the
+battery, e.g. a 12V-26Ah battery), not a test reading - confirmed live
+2026-08-24 against real report data (`voltage`/`amps` already come through
+as flat numbers like `12.00`/`7.00`/`8.00`, never fluctuating readings).
 Must be numeric and non-negative. Formatted to exactly two decimal places,
-preserving the actual value (`12`, `12.0`, `12.000` -> `12.00`). Blank ->
-`Missing Required Value`. Non-numeric or negative -> `Invalid Numeric
-Value`. Both block Min Ah/Model Number generation for that record (see
-below) - already surfaced via this flag, no separate error is raised.
+preserving the actual value (`12`, `12.0`, `12.000` -> `12.00`; a 26-amp
+battery -> `26.00`). Blank -> `Missing Required Value`. Non-numeric or
+negative -> `Invalid Numeric Value`. Both block Min Ah/Model Number
+generation for that record (see below) - already surfaced via this flag,
+no separate error is raised.
 
 ### Pre Test
 
@@ -67,10 +72,26 @@ regardless of its content or format (`Pre Test Will Be Cleared`).
 Preserve the actual reading, formatted to two decimals. Values in the
 common 11.00-13.00 range for a 12V battery are not enforced or assumed -
 `0.00` (a failed/dead battery) is a real, confirmed value in production
-reports and is left untouched. A negative reading is flagged
-`Suspicious Reading`; non-numeric text is flagged `Invalid Numeric Value`.
-Neither is ever rewritten. Blank Post Test is left blank, not flagged (not
-every battery has been load-tested yet).
+reports and is left untouched (see the load-test exception below for what
+a paired `0.00`/`0.00` with Tested Ah means for the Pass/Fail outcome - it
+doesn't change how Post Test itself is formatted here). A negative reading
+is flagged `Suspicious Reading`; non-numeric text is flagged `Invalid
+Numeric Value`. Neither is ever rewritten.
+
+**Blank Post Test (changed 2026-08-24, explicitly requested):** filled with
+a randomly generated reading in `[12.00, 13.00)` (`randomPostTestReading`
+in `rules/battery-cleanup.js`), bucket `postTestGenerated` - the **one
+deliberate exception** to every other Battery Cleanup field's never-invent
+rule. Cosmetic only: it never feeds the Pass/Fail outcome, which is decided
+purely from Tested Ah vs. Min Ah (see below) and Install Date. Preview and
+Apply each classify fresh (see `docs/architecture.md`'s "Preview never
+mutates" / "Apply re-runs classification fresh"), so a fresh Preview and
+the Apply that follows it can legitimately generate two different values
+for the same Battery - there is no "right" number to preserve between
+them, so this is expected, not a bug. Confirmed live 2026-08-24 on a real
+report: a hand-blanked Post Test generated `12.94` on Preview and `12.12`
+on the following Apply, both correctly written and verified in the live
+grid.
 
 ### Min Ah
 
@@ -213,7 +234,56 @@ rule (recalculated fresh every time, never the stored Min Ah), compared
 against the newly-normalized Tested Ah reading. `0.00` Tested Ah is a real
 reading and fails like any other value lower than a positive Min Ah - there
 is no exemption for it, for a prior Passed state, or for existing
-replacement-history text in Note.
+replacement-history text in Note. **The one exception** is the 0.00/0.00
+"already completed" placeholder immediately below - every other Tested Ah
+value, including a lone 0.00 without a matching 0.00 Post Test, is never
+exempted.
+
+#### 0.00/0.00 "already completed" placeholder exception
+
+**Added 2026-08-24**, confirmed live the same day on a real report: a
+`0.00` Post Test **together with** a `0.00` Tested Ah, with no `flat`
+marker found anywhere, is how technicians mark a battery that's already
+been serviced/replaced - the new physical battery just hasn't been
+re-tested yet, so `0.00`/`0.00` together is a placeholder rather than an
+active failing reading. Real report evidence: two Batteries whose Note
+already read `"...Battery Replaced By <tech> With <company> - <date>"`
+kept getting re-failed by the load-test rule on every run despite already
+being handled.
+
+- **Trigger**: Post Test parses as exactly `0.00` **and** Tested Ah parses
+  as exactly `0.00` (both, not just one - a lone `0.00` Post Test with a
+  different Tested Ah, or vice versa, is never exempted and fails
+  normally).
+- **`flat` marker scan** (`hasFlatMarker` in `rules/battery-cleanup.js`):
+  same eight free-text columns as the Heat Detector One Hitter exception
+  (`description`, `location`, `direction`, `comment`, `note`, `solution`,
+  `modelnumber`, `service`), case-insensitive, matched as a **whole word**
+  only (`\bflat\b` - "flatline" does not count as a match). If `flat` is
+  found anywhere in those columns (e.g. a technician actually retested the
+  new battery and confirmed it reads dead - "Tested flat"), the exception
+  does **not** apply and the load-test failure proceeds normally.
+- **Outcome when the exception applies**: treated as `PASSED` - Passed
+  checkbox checked, Service = `Visual & Functional, Passed`, Comment/
+  Solution cleared, Note untouched, same as any other pass (see "Passing"
+  below). This only suppresses the *load-test* failure check
+  (`loadTestFailedProven`) - it does not change `minAhValue`/`testedAhValue`
+  themselves, so a Battery with an otherwise-invalid Amps/Min Ah still
+  correctly falls to `REVIEW` rather than being forced to Passed.
+- **Install Date expiration is completely untouched by this exception** and
+  can still independently fail the Battery on its own (`DATE_EXPIRED`, not
+  `FAILED_LOAD_TEST`) - when a battery is actually replaced, Install Date
+  gets updated to the replacement/manufacture date, so a Battery that still
+  shows an expired Install Date despite the 0.00/0.00 placeholder is still
+  meaningfully expired and should still fail.
+- Confirmed live (2026-08-24, same real report as above): before this fix,
+  Preview showed 2 Passing / 2 Date Expired / 2 Failed Load Test across 6
+  real Batteries; after, 4 Passing / 2 Date Expired / 0 Failed Load Test -
+  the two 0.00/0.00 placeholder Batteries (real Note text confirming they'd
+  already been replaced, no `flat` marker anywhere) now classify
+  `alreadyCorrect` (their existing Passed/Service/Comment/Solution already
+  matched, so zero fields needed to change) instead of being wrongly
+  flagged to overwrite a correct Passed state with Failed.
 
 ### The three failure outputs
 
@@ -261,6 +331,7 @@ Deterministic, never assumes missing means Passed:
 |---|---|---|
 | `alreadyCorrect` | Battery has zero field changes and zero review flags | n/a |
 | `safeFormatting` | Rated Voltage / Amps / Post Test / Tested Ah reformatted | Yes |
+| `postTestGenerated` | Post Test was blank, filled with a generated `12.00`-`13.00` reading | Yes |
 | `minAhRecalculation` | Min Ah blank, misformatted, or wrong | Yes |
 | `modelNumberCorrection` | Model Number doesn't match derived value | Yes |
 | `preTestWillBeCleared` | Pre Test had a value | Yes |

@@ -88,6 +88,26 @@ test('a non-numeric Post Test is flagged invalid, not rewritten', () => {
   assert.equal(reviewFlag(r, 'postTest').bucket, BatteryBucket.INVALID_NUMERIC_VALUE);
 });
 
+test('a blank Post Test is filled with a generated reading between 12.00 and 13.00, not left blank', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ postTest: '' }));
+  assert.equal(reviewFlag(r, 'postTest'), undefined);
+  const c = fieldChange(r, 'postTest');
+  assert.ok(c, 'expected a postTest change');
+  assert.equal(c.bucket, BatteryBucket.POST_TEST_GENERATED);
+  assert.equal(c.before, '');
+  const value = Number(c.after);
+  assert.match(c.after, /^\d{2}\.\d{2}$/);
+  assert.ok(value >= 12 && value < 13, `expected 12.00 <= ${c.after} < 13.00`);
+});
+
+test('a blank Post Test never affects the Pass/Fail outcome (cosmetic only)', () => {
+  // Same inputs with a real vs. a blank Post Test should produce the exact
+  // same outcome - Post Test never feeds Tested Ah vs Min Ah.
+  const withReading = classifyBatteryRecord(makeBatteryRecord({ postTest: '12.70' }), NOW);
+  const blank = classifyBatteryRecord(makeBatteryRecord({ postTest: '' }), NOW);
+  assert.equal(blank.outcome, withReading.outcome);
+});
+
 test('Amps "8.00" calculates Min Ah as "5.20"', () => {
   const r = classifyBatteryRecord(makeBatteryRecord({ amps: '8.00', minAh: '5.20' }));
   assert.equal(fieldChange(r, 'minAh'), undefined, 'already correct, no change needed');
@@ -261,6 +281,58 @@ test('Tested Ah above Min Ah passes', () => {
 test('a 0.00 Tested Ah fails against a positive Min Ah - no exemption', () => {
   const r = classifyBatteryRecord(makeBatteryRecord({ testedAh: '0.00' }), NOW);
   assert.equal(r.outcome, BatteryOutcome.FAILED_LOAD_TEST);
+});
+
+// --- Pass/Fail outcome: 0.00/0.00 "already completed" placeholder exception ---
+
+test('0.00 Post Test + 0.00 Tested Ah with no "flat" marker anywhere passes, not fails', () => {
+  const r = classifyBatteryRecord(
+    makeBatteryRecord({ postTest: '0.00', testedAh: '0.00', note: 'Battery Replaced By Tech - 8/6/25' }),
+    NOW
+  );
+  assert.equal(r.outcome, BatteryOutcome.PASSED);
+});
+
+test('0.00 Post Test alone (Tested Ah not also 0.00) still fails normally', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ postTest: '0.00', testedAh: '1.00' }), NOW);
+  assert.equal(r.outcome, BatteryOutcome.FAILED_LOAD_TEST);
+});
+
+test('0.00 Tested Ah alone (Post Test not also 0.00) still fails normally', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ postTest: '12.70', testedAh: '0.00' }), NOW);
+  assert.equal(r.outcome, BatteryOutcome.FAILED_LOAD_TEST);
+});
+
+test('a "flat" marker anywhere in the scanned columns overrides the 0.00/0.00 placeholder - fails normally', () => {
+  const r = classifyBatteryRecord(
+    makeBatteryRecord({ postTest: '0.00', testedAh: '0.00', note: 'Tested flat' }),
+    NOW
+  );
+  assert.equal(r.outcome, BatteryOutcome.FAILED_LOAD_TEST);
+});
+
+test('"flat" is matched as a whole word, not a substring (e.g. "flatline" does not count)', () => {
+  const r = classifyBatteryRecord(
+    makeBatteryRecord({ postTest: '0.00', testedAh: '0.00', comment: 'flatline reading' }),
+    NOW
+  );
+  assert.equal(r.outcome, BatteryOutcome.PASSED);
+});
+
+test('"flat" is scanned tolerant of case across the same columns as One Hitter', () => {
+  const r = classifyBatteryRecord(
+    makeBatteryRecord({ postTest: '0.00', testedAh: '0.00', solution: 'Confirmed FLAT on retest' }),
+    NOW
+  );
+  assert.equal(r.outcome, BatteryOutcome.FAILED_LOAD_TEST);
+});
+
+test('the 0.00/0.00 placeholder does not suppress a separately-proven Date Expired failure', () => {
+  const r = classifyBatteryRecord(
+    makeBatteryRecord({ postTest: '0.00', testedAh: '0.00', installDate: '2020-01-01' }),
+    NOW
+  );
+  assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED);
 });
 
 test('failure uses the newly calculated Min Ah, not a stale stored Min Ah value', () => {
