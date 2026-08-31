@@ -299,6 +299,65 @@ test('Communicator/Communication Line/Monitoring are classified identically unde
   }
 });
 
+test('the real-world "Visually" typo normalizes the same as "Visual"', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Strobe', service: 'Visually & Functional, Passed' }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual & Functional, Passed');
+});
+
+test('"Visually" typo under Semi-Annual still respects the Visual-only device grouping', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Strobe', service: 'visually and functional, passed' }),
+    semiAnnualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual, Passed');
+});
+
+test('a bare "Tested" placeholder with Passed checked normalizes to the profile\'s canonical phrase', () => {
+  const annualResult = classifyRecord(
+    makeRecord({ devicetype: 'Smoke Detector', service: 'Tested', passed: true }),
+    annualProfile
+  );
+  assert.equal(annualResult.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(annualResult.after, 'Visual & Functional, Passed');
+
+  const semiAnnualResult = classifyRecord(
+    makeRecord({ devicetype: 'Smoke Detector', service: 'Tested', passed: true }),
+    semiAnnualProfile
+  );
+  assert.equal(semiAnnualResult.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(semiAnnualResult.after, 'Visual, Passed');
+
+  const semiAnnualVFResult = classifyRecord(
+    makeRecord({ devicetype: 'Battery', service: 'tested', passed: true }),
+    semiAnnualProfile
+  );
+  assert.equal(semiAnnualVFResult.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(semiAnnualVFResult.after, 'Visual & Functional, Passed');
+});
+
+test('a bare "Tested" placeholder with Passed UNCHECKED is never guessed at as Failed', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Smoke Detector', service: 'Tested', passed: false }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.UNSUPPORTED_FIELD);
+  assert.equal(r.after, null);
+});
+
+test('a Heat Detector with a "Tested" placeholder gets the standard phrase, not the Visual-only preserved signal', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Heat Detector', service: 'Tested', passed: true }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual & Functional, Passed');
+});
+
 test('a Communicator needing normalization is not treated as an unsupported device type', () => {
   const r = classifyRecord(
     makeRecord({ devicetype: 'Communicator', service: 'restored @11:29am 5/1/25' }),

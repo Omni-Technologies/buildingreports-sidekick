@@ -295,6 +295,21 @@ does: registering direct `Ext.Ajax` `requestcomplete`/`requestexception`
 listeners before triggering a save. Don't rely on `list_network_requests`/
 `get_network_request` for this app's write traffic.
 
+**A same-value write looks identical to a rate-limit hang - confirmed live
+2026-08-31.** `applySingleFieldChange` calls `rec.set(fields)` then waits
+for a `deviceWrite` response before resolving. If `fields` already equals
+the record's current value, ExtJS's `Model.set()` doesn't mark the record
+dirty, so `onSaveDeviceEditPage` has nothing to save for that record - no
+request is ever sent - and the promise sits until the same 30s
+`ambiguousTimeout` used for genuine rate-limit uncertainty. Observed
+first-hand restoring a hand-set test value back to a device's true
+original: the write appeared to "hang" and returned `{ rateLimited: true,
+ambiguousTimeout: true }` twice in a row, even though nothing was actually
+wrong - the target value was already live (a prior write, or the value
+never having changed in the first place). When a restore/no-op write comes
+back ambiguous, verify by reading the record's live value directly before
+assuming a real rate-limit problem or retrying further.
+
 ## 6. Selector/API stability notes (for repairs)
 
 If BuildingReports changes its build and something breaks, check these in

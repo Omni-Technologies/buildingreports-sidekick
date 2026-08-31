@@ -91,6 +91,15 @@ test('Communicator with correct Service text but a stale Restore Time still need
   assert.equal(extraField(r, 'restoreTime').after, '11:29 AM');
 });
 
+test('Communicator full date+time-with-seconds format is recognized (real-world example)', () => {
+  const r = classifyCommunicatorRecord(
+    makeRecord({ devicetype: 'Communicator', service: '08/24/2026 10:48:51 AM', restoreTime: '' })
+  );
+  assert.equal(r.bucket, 'safeChange');
+  assert.equal(r.after, 'Restored @ 10:48 AM 8/24/26');
+  assert.equal(extraField(r, 'restoreTime').after, '10:48 AM');
+});
+
 // --- Communication Line ---
 
 test('Communication Line already "Yes, <time>" is already correct', () => {
@@ -246,6 +255,39 @@ test('Monitoring passing with no recognizable time needs review, never guessed',
     makeRecord({ devicetype: 'Monitoring', service: 'Confirmed', passed: true })
   );
   assert.equal(r.bucket, 'needsReview');
+});
+
+test('Monitoring "Na - no available devices" (real-world example) normalizes to plain N/A', () => {
+  const r = classifyMonitoringRecord(
+    makeRecord({ devicetype: 'Monitoring', service: 'Na - no available devices', passed: true, confirmedTime: '' })
+  );
+  assert.equal(r.bucket, 'safeChange');
+  assert.equal(r.after, 'N/A');
+  assert.equal(extraField(r, 'confirmedTime').after, 'N/A');
+});
+
+test('Monitoring "NA" leading-word detection does not false-positive on an unrelated word', () => {
+  const r = classifyMonitoringRecord(
+    makeRecord({ devicetype: 'Monitoring', service: 'Named line confirmed 6:11 AM', passed: true, confirmedTime: '' })
+  );
+  // "Named..." starts with "Na" but is not the N/A word - falls through to
+  // ordinary time extraction instead of being misread as N/A.
+  assert.equal(r.bucket, 'safeChange');
+  assert.equal(r.after, 'Yes, 6:11 AM');
+});
+
+test('Monitoring full date+time-with-seconds Service normalizes and syncs Confirmed Time (real-world example)', () => {
+  const r = classifyMonitoringRecord(
+    makeRecord({
+      devicetype: 'Monitoring',
+      service: '08/24/2026 10:48:51 AM',
+      passed: true,
+      confirmedTime: '',
+    })
+  );
+  assert.equal(r.bucket, 'safeChange');
+  assert.equal(r.after, 'Yes, 10:48 AM');
+  assert.equal(extraField(r, 'confirmedTime').after, '10:48 AM');
 });
 
 test('Monitoring blank Service is left untouched', () => {

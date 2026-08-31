@@ -28,7 +28,18 @@ changes — it's meant to save a future session from re-deriving all of this.
   (`communications-parser.js`) also recognizes a 24-hour-clock hour (e.g.
   `15:14:26 pm`, a real-world reported example, or a bare `15:14`) and
   converts it to 12-hour form, even alongside a redundant/mismatched am/pm
-  marker (2026-08-24).
+  marker (2026-08-24). Three more real-world bugfixes added 2026-08-31: the
+  "Visually" typo (e.g. "Visually & Functional, Passed" on a real Strobe)
+  normalizes the same as "Visual"; a bare "Tested" placeholder in Service,
+  with Passed checked, normalizes to the profile's canonical phrase (Passed
+  UNCHECKED is never guessed at, stays `unsupportedField`); and Monitoring's
+  N/A detection now tolerates a leading "N/A"/"NA" followed by free text
+  (e.g. "Na - no available devices"), not just an exact "N/A". Monitoring's
+  existing time extraction was also confirmed live to already correctly
+  handle a full date+time-with-seconds Service value (e.g. "08/24/2026
+  10:48:51 AM" → "Yes, 10:48 AM", Confirmed Time synced) - no code change
+  was needed there; it was a stale/not-yet-reloaded extension in an earlier
+  session, not a real bug.
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
   Undo — **shares the same three popup buttons as Service Cleanup since
   2026-08-24** (no longer separate buttons; `popup.js` triggers both
@@ -80,7 +91,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**235 tests, 0 failures** across `tests/*.test.js`
+**244 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `engine.test.js`, `repair-battery.test.js`,
 `repair-engine.test.js`, `repair-generic.test.js`, `semi-annual.test.js`,
@@ -179,9 +190,69 @@ no timezone/off-by-one-day issues (see `docs/repair-fixed-rules.md`).
   Undo started reverting all 107 before it was caught and paused. See
   `docs/architecture.md`'s Undo section for the full account and the
   operational fix (check `chrome.storage.local`'s entry count before
-  clicking Undo during live testing).
+  clicking Undo during live testing). **Confirmed to recur 2026-08-31**
+  (see that date's entry below) - a single stray leftover entry from an
+  unrelated, never-cleared prior session was found mixed into this
+  session's own 4-item Undo journal for the same report; the entry-count
+  check is not a one-time historical footnote, check it every single time.
 
 ## Most recent successful live verification
+
+**2026-08-31, a real report (no customer/report identifiers recorded
+here):** three real-world bugs reported by the user, each hand-set on a
+real device via the adapter, then confirmed through the actual popup UI
+(popup.html opened as a background tab pointed at the active report tab -
+the ephemeral toolbar action-popup kept auto-closing under browser
+automation before multi-step interaction could finish, so this was used
+instead; `chrome.tabs.query({active:true, currentWindow:true})` still
+resolves to the real report tab either way):
+
+- **"Visually" typo** (a real Strobe record): Preview correctly showed
+  `safeChange`, `Visually & Functional, Passed` → `Visual & Functional,
+  Passed`; Apply saved and verified against the live grid.
+- **Bare "Tested" placeholder** (a real Smoke Detector record, Passed
+  checked): Preview correctly showed `safeChange`, `Tested` → `Visual &
+  Functional, Passed`; Apply saved and verified.
+- **Monitoring N/A leading-text tolerance** (a real Monitoring record):
+  Preview correctly showed `safeChange`, `Na - no available devices` →
+  `N/A` with Confirmed Time synced to `N/A`; Apply saved and verified both
+  fields.
+- **Monitoring full date+time-with-seconds** (a different real Monitoring
+  record, `08/24/2026 10:48:51 AM`): confirmed this already worked
+  correctly end-to-end (Preview → `Yes, 10:48 AM`, Confirmed Time synced to
+  `10:48 AM` → Apply saved and verified) with no code change - the earlier
+  user report of this failing was traced to a stale, not-yet-reloaded
+  extension instance, not a logic bug.
+- All 4 changes applied cleanly (`Saved: 4, Save failures: 0`), then hand-
+  restored directly to their exact original values (not via "Undo Last
+  Cleanup" - see below) and a final Preview confirmed the report back to
+  its exact original baseline (`0 safe changes`, `222 already correct`,
+  `6 unsupported field format` unchanged, Battery `0 affected` unchanged
+  throughout).
+- **Real incident found and recovered from during this session's own
+  Undo check:** per the mandatory pre-Undo entry-count check, this
+  report's Undo journal held **5** entries, not the 4 just written - a
+  stray leftover from an earlier, never-fully-cleared session (a real Heat
+  Detector's Restorable-checkbox change, `before: false → after: true`).
+  The device's live `restorable` value was confirmed still `true` - the
+  **correct** state for that Heat Detector under the current rule -
+  meaning "Undo Last Cleanup" would have wrongly flipped a genuinely
+  correct field back to incorrect. Recovered using the exact pattern this
+  file already documents for this scenario: hand-restored this session's 4
+  own changes directly via the adapter (bypassing Undo entirely) and
+  discarded the stale Undo storage entry, leaving the Heat Detector
+  untouched (already correct). This is the same accumulated-history risk
+  described in "Known limitations" below, now confirmed to recur across
+  unrelated sessions/dates on the same report - always check the real
+  entry count before clicking Undo, never trust the number of changes you
+  personally just made.
+- A genuine adapter quirk was found (not a bug, but worth knowing for
+  future live testing) and documented in `docs/buildingreports-dom-map.md`
+  §5.1: restoring a value that's already correct causes ExtJS to skip the
+  save entirely (record never marked dirty), which surfaces as the same
+  `ambiguousTimeout` response used for genuine rate-limit uncertainty -
+  verify via a direct read instead of assuming failure.
+- `npm test`: 244/244 passing (9 new tests added for these three fixes).
 
 **2026-08-24, a real report (no customer/report identifiers recorded
 here):**

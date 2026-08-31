@@ -314,6 +314,27 @@ instance) as the report. Re-check the MCP connection, re-list pages, and
 ask the user to reconnect only when it genuinely can't be found any other
 way.
 
+Also: the report app is a classic nested frameset with the real Device
+Editor content two frames deep (`window.frames[0].frames[N]`, N varies -
+don't hardcode it, scan for the frame with `window.Ext` and
+`window.ReportInspectionId`; see `docs/buildingreports-dom-map.md` §1) -
+the outermost `window.location.href` never changes, so check `Ext`/
+`ReportInspectionId` inside the right frame, not the top-level URL, to
+confirm you're really connected to a live report.
+
+**Testing the actual popup UI via MCP:** `trigger_extension_action` opens
+the real ephemeral toolbar popup, but it reliably auto-closes (`No page
+found` on the next tool call) before a multi-step click/wait/snapshot
+sequence can finish - it's not reliable for anything beyond a single
+screenshot. Instead, open `popup.html` directly as a normal, persistent
+tab: `new_page({ url: 'chrome-extension://<id>/src/popup/popup.html',
+background: true })`, with the report tab already the foreground/active
+tab. `popup.js` finds its target via `chrome.tabs.query({active: true,
+currentWindow: true})`, which still correctly resolves to the report tab
+(not the new popup tab) as long as `background: true` was used - confirmed
+live 2026-08-31. This gives a normal tab that survives arbitrarily many
+click/wait_for/snapshot round-trips, exactly like testing any other page.
+
 ## Safety restrictions
 
 This extension only ever edits a device's `Service` field or Battery

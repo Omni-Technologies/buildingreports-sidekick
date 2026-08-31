@@ -2,8 +2,11 @@
 // style result, tolerating the capitalization/spacing/punctuation variations
 // called out in docs/cleanup-rules.md. Pure logic - no DOM/Ext dependency.
 
+// Tolerates the real-world typo "Visually" (confirmed live on a Strobe
+// record: "Visually & Functional, Passed") alongside the correct "Visual" -
+// `(?:ly)?` is non-capturing so it doesn't shift the numbered groups below.
 const RESULT_PATTERN =
-  /^\s*visual\s*((?:&|and)\s*functional)?\s*[,]?\s*(passed|failed)\b\s*(.*)$/i;
+  /^\s*visual(?:ly)?\s*((?:&|and)\s*functional)?\s*[,]?\s*(passed|failed)\b\s*(.*)$/i;
 
 const HAS_PASSED = /\bpassed\b/i;
 const HAS_FAILED = /\bfailed\b/i;
@@ -42,4 +45,26 @@ export function parseVisualFunctionalResult(rawValue) {
 export function buildCanonicalService(prefix, parsed) {
   const base = `${prefix}, ${parsed.resultWord}`;
   return parsed.suffix ? `${base} - ${parsed.suffix}` : base;
+}
+
+// Real-world example: a technician enters a bare "Tested" in Service
+// instead of a real result, relying entirely on the Passed checkbox for the
+// actual outcome. Recognized ONLY when Passed is checked (`passed ===
+// true`) - deliberately not extended to a Failed guess, since nothing in
+// the raw text says why it failed (mirrors Monitoring's "Passed unchecked
+// with no Note -> needsReview, never guessed" convention). Returns a
+// parsed-result-shaped object usable with buildCanonicalService, or null.
+//
+// `hasFunctional` is set to `true` (not a reflection of any real "&
+// Functional" text - there isn't any) purely so classify.js's Annual Heat
+// Detector Visual-only-preserved check (which requires `hasFunctional ===
+// false` to fire) never mistakes this placeholder for that deliberate
+// restorable/non-restorable signal - a bare "Tested" carries no such
+// signal, so a Heat Detector with this text should get the profile's
+// ordinary standard/visualFunctional phrase, not be preserved Visual-only.
+const GENERIC_TESTED_PATTERN = /^\s*tested\s*$/i;
+export function parseGenericTestedPlaceholder(rawValue, passed) {
+  if (passed !== true) return null;
+  if (!GENERIC_TESTED_PATTERN.test(rawValue)) return null;
+  return { resultWord: 'Passed', suffix: '', hasFunctional: true };
 }

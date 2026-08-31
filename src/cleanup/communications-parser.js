@@ -41,6 +41,7 @@ export function isMonitoring(deviceType) {
 // regex captures the whole H:MM:SS run instead of drifting onto the wrong
 // H:MM pair when seconds are present - see extractTime below.
 const TIME_PATTERN = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp]\.?[Mm]\.?)?/;
+const NA_LEADING_PATTERN = /^n\/?a\b/i;
 const DATE_PATTERN = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})\b/;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -249,7 +250,12 @@ export function classifyMonitoringRecord(record) {
     };
   }
 
-  const isNA = collapseWhitespace(rawService).toLowerCase() === 'n/a';
+  // Tolerates a leading "N/A"/"NA" followed by free-text explanation - a
+  // real-world example was "Na - no available devices". The explanation is
+  // discarded; the canonical N/A value never carries a suffix, same as an
+  // exact "N/A" always has. `\b` after the pattern means a word like "Name"
+  // (which also starts "Na") is correctly NOT treated as N/A.
+  const isNA = NA_LEADING_PATTERN.test(collapseWhitespace(rawService));
   if (isNA) {
     const extraFieldChanges = [];
     if (currentConfirmedTime.toLowerCase() !== 'n/a') {

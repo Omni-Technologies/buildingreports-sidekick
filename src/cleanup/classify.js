@@ -4,6 +4,7 @@ import { detectOneHitter } from './one-hitter.js';
 import {
   hasConflictingResult,
   parseVisualFunctionalResult,
+  parseGenericTestedPlaceholder,
   buildCanonicalService,
 } from './service-parser.js';
 import { classifyCommsRecord } from './communications-parser.js';
@@ -97,7 +98,10 @@ export function classifyRecord(record, profile) {
     };
   }
 
-  const parsed = parseVisualFunctionalResult(rawService);
+  // A bare "Tested" placeholder falls back to the Passed checkbox as the
+  // outcome source (see service-parser.js's parseGenericTestedPlaceholder)
+  // only when the text itself doesn't already parse as a real result.
+  const parsed = parseVisualFunctionalResult(rawService) || parseGenericTestedPlaceholder(rawService, record.passed);
   if (parsed) {
     // Annual-only: a Heat Detector whose Service already says "Visual,
     // Passed/Failed" (no "& Functional") is a deliberate restorable/

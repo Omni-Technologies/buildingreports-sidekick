@@ -59,6 +59,28 @@ Failed equivalents normalize to `Visual & Functional, Failed`, e.g. `visual
 and functional, failed`, `Visual & functional failed`, `Visual &
 Functional,Failed`.
 
+**Real-world typo tolerated (added 2026-08-31):** `Visually` (e.g.
+`Visually & Functional, Passed`, confirmed live on a real Strobe record)
+normalizes exactly like `Visual` - `RESULT_PATTERN` in `service-parser.js`
+matches an optional trailing `ly` right after `visual`. This applies
+identically to every supported device type and both profiles (it's in the
+shared parsing regex, not profile-specific).
+
+**Bare "Tested" placeholder (added 2026-08-31):** a technician sometimes
+enters just `Tested` in Service instead of a real result, relying on the
+Passed checkbox alone. Recognized **only when Passed is checked**
+(`parseGenericTestedPlaceholder` in `service-parser.js`) and treated as a
+normal parsed Passed result with no suffix, then run through the same
+prefix-selection logic as any other record - so it becomes `Visual &
+Functional, Passed`/`Visual, Passed`/etc. exactly as the device type and
+profile dictate. **Deliberately not extended to a Failed guess** - a
+`Tested` value with Passed unchecked has no text explaining why, so it's
+left `unsupportedField` for a human to review, same conservative
+"never guess a failure reason" convention used by Monitoring's failing
+rule below. A Heat Detector with this placeholder gets the profile's
+ordinary phrase (not the Annual Visual-only-preserved signal) since a bare
+`Tested` carries no restorable/non-restorable information at all.
+
 A trailing note is kept, trimmed of leading punctuation, joined with
 ` - `, and only its first letter is capitalized (never full title-casing,
 so acronyms/model numbers/addresses inside the note are untouched):
@@ -267,7 +289,13 @@ Confirmed Time attribute), plus three extra rules:
 
 - **Service already exactly `N/A`** (case-insensitive) is a valid passing
   value as-is - left untouched, only the Confirmed Time attribute is synced
-  to `N/A` if it isn't already.
+  to `N/A` if it isn't already. **Also tolerates a leading `N/A`/`NA`
+  followed by free-text explanation (added 2026-08-31, real-world example:
+  `Na - no available devices`)** - `NA_LEADING_PATTERN` in
+  `communications-parser.js` matches `n`/`na` at the start of the value as
+  a whole word (so `Named...` is correctly NOT mistaken for N/A), and the
+  explanation is discarded - the canonical value is always plain `N/A`,
+  never carrying a suffix.
 - **Passed unchecked WITH an explanatory Note** -> `Service = N/A`,
   `Comment = Failed Test`, `Solution = See Notes/Recommendations`,
   `Confirmed Time = N/A`. **Note is never touched** - it already explains
