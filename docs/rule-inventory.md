@@ -41,7 +41,8 @@ all rows below: `src/cleanup/rules/battery-cleanup.js` (attribute rules) /
 
 | Rule | Status | Live tested | Notes |
 |---|---|---|---|
-| Rated Voltage / Amps → exactly 2 decimals, value preserved | Implemented | Yes | Blank/non-numeric/negative flagged, not guessed; these are the battery's fixed rated values, not test readings |
+| Rated Voltage / Amps → exactly 2 decimals, value preserved | Implemented | Yes | Blank/non-numeric/negative flagged, not guessed; these are the battery's fixed rated values, not test readings; tolerates a trailing unit suffix ("12 V", "75.0 AH") added 2026-09-01, stripped before parsing - an unrecognized suffix is still flagged, never guessed |
+| Manufacturer: known spelling variants normalized (e.g. Power-Sonic) | Implemented | Yes | Added 2026-09-01, explicitly requested; narrow per-manufacturer dictionary (`MANUFACTURER_CANONICAL_BY_KEY`), never fuzzy - an unrecognized manufacturer is left completely untouched |
 | Pre Test always cleared when non-blank | Implemented | Yes | Unconditional |
 | Post Test → 2 decimals, value preserved (incl. `0.00`) | Implemented | Yes | Negative flagged suspicious, non-numeric flagged invalid |
 | Post Test blank → generated reading `12.00`-`13.00` | Implemented | Yes | Added 2026-08-06/24, explicitly requested - the one exception to Battery Cleanup's never-invent rule; cosmetic only, never feeds Pass/Fail |

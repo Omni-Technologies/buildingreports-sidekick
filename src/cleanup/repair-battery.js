@@ -20,6 +20,7 @@ import {
   formatTwoDecimals,
   trimTrailingZeros,
   MIN_AH_FACTOR,
+  VOLTAGE_UNIT_PATTERN,
 } from './rules/battery-cleanup.js';
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -103,7 +104,7 @@ export function buildBatteryRepairChange(record, input) {
   // it's somehow missing/invalid on the existing record, Model Number is
   // left untouched rather than guessed (same convention as Battery
   // Cleanup's own Model Number rule).
-  const ratedVoltageParsed = parseNumericField(record.ratedVoltage);
+  const ratedVoltageParsed = parseNumericField(record.ratedVoltage, VOLTAGE_UNIT_PATTERN);
   const modelNumber = ratedVoltageParsed.state === 'valid'
     ? `${trimTrailingZeros(ratedVoltageParsed.value)}V-${trimTrailingZeros(amps)}Ah`
     : null;

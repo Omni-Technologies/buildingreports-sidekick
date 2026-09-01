@@ -11,6 +11,7 @@ import {
 const FIELD_TO_COUNT_KEY = {
   ratedVoltage: 'ratedVoltageFormattingChanges',
   amps: 'ampsFormattingChanges',
+  manufacturer: 'manufacturerCorrections',
   preTest: 'preTestCleared',
   postTest: 'postTestFormattingChanges',
   minAh: 'minAhCorrections',
@@ -33,11 +34,12 @@ const BUCKET_TO_COUNT_KEY = {
   [BatteryBucket.POST_TEST_GENERATED]: 'postTestGenerated',
 };
 
-// The 8 "attribute" fields (as opposed to the 5 pass/fail outcome fields
+// The 9 "attribute" fields (as opposed to the 5 pass/fail outcome fields
 // above) - used to derive Preview's single "Battery attribute changes" total.
 const ATTRIBUTE_COUNT_KEYS = [
   'ratedVoltageFormattingChanges',
   'ampsFormattingChanges',
+  'manufacturerCorrections',
   'preTestCleared',
   'postTestFormattingChanges',
   'postTestGenerated',

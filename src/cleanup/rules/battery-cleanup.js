@@ -6,9 +6,13 @@
 // for the full rule reference and "how to add the next rule" instructions.
 //
 // Records passed in here use semantic field names (ratedVoltage, amps,
-// preTest, postTest, minAh, testedAh, modelNumber, installDate, passed,
-// service, comment, solution, note) - never BuildingReports' internal
-// dataIndex names (voltage, pretestvoltage, velocity1door, ...).
+// manufacturer, preTest, postTest, minAh, testedAh, modelNumber,
+// installDate, passed, service, comment, solution, note) - never
+// BuildingReports' internal dataIndex names (voltage, pretestvoltage,
+// velocity1door, ...). `manufacturer` shares its semantic name with its
+// real dataIndex (an ordinary #devicelistGrid column, same as
+// passed/service/comment/solution/note), so no BATTERY_FIELD_MAP entry is
+// needed for it.
 // That translation is owned entirely by
 // src/site-adapters/buildingreports/adapter.js's BATTERY_FIELD_MAP (or, for
 // installDate's Date->string conversion, toLocalDateOnlyString there).
@@ -22,6 +26,7 @@ export const BatteryBucket = {
   POST_TEST_GENERATED: 'postTestGenerated',
   MIN_AH_RECALCULATION: 'minAhRecalculation',
   MODEL_NUMBER_CORRECTION: 'modelNumberCorrection',
+  MANUFACTURER_CORRECTION: 'manufacturerCorrection',
   PRE_TEST_CLEARED: 'preTestWillBeCleared',
   MISSING_REQUIRED_VALUE: 'missingRequiredValue',
   INVALID_NUMERIC_VALUE: 'invalidNumericValue',
@@ -70,11 +75,21 @@ const CHANGE_PRIORITY = [
   BatteryBucket.MIN_AH_RECALCULATION,
   BatteryBucket.PRE_TEST_CLEARED,
   BatteryBucket.SAFE_FORMATTING,
+  BatteryBucket.MANUFACTURER_CORRECTION,
   BatteryBucket.POST_TEST_GENERATED,
 ];
 
 const BATTERY_DEVICE_TYPE_KEY = normalizeDeviceTypeKey('Battery');
 const NUMERIC_PATTERN = /^-?\d+(\.\d+)?$/;
+// A trailing unit word after the number, tolerated only when explicitly
+// opted into via parseNumericField's `unitPattern` - never guessed at for
+// fields that don't pass one (Post Test/Tested Ah/Min Ah stay exactly as
+// strict as before). Real-world examples confirmed 2026-08-31: "12 V",
+// "12.0 V" for Rated Voltage; "75.0 AH", "7.0 AH" for Amps. Exported so
+// repair-battery.js's read of the existing Rated Voltage gets the same
+// tolerance.
+export const VOLTAGE_UNIT_PATTERN = /^v(dc)?$|^volts?$/i;
+export const AMPS_UNIT_PATTERN = /^ah$|^a$|^amps?$/i;
 // Exported (see parseNumericField above) so Repair/Fixed's Battery rule
 // computes Min Ah/Model Number identically, never a second hand-rolled copy.
 export const MIN_AH_FACTOR = 0.65;
@@ -103,6 +118,25 @@ function hasFlatMarker(record) {
   return false;
 }
 
+// Manufacturer spelling normalization (added 2026-09-01, explicitly
+// requested) - real-world variants seen: "powersonic", "PowerSonic",
+// "Power Sonic", "POWER SONIC", etc. Matched by stripping whitespace/
+// hyphens and lowercasing, so any spacing/capitalization/hyphenation of
+// the same two words normalizes to the same canonical value. Deliberately
+// narrow - only this one manufacturer has a rule; every other value in the
+// Manufacturer column (e.g. "Duracell", "System Sensor") is left
+// completely untouched, no fuzzy/partial matching. Add another entry here
+// (never a generic "clean up any manufacturer" pattern) when the next
+// specific manufacturer/company preference is requested - see
+// docs/battery-cleanup-rules.md "Manufacturer".
+const MANUFACTURER_CANONICAL_BY_KEY = {
+  powersonic: 'Power-Sonic',
+};
+
+function normalizeManufacturerKey(value) {
+  return collapseWhitespace(String(value || '')).toLowerCase().replace(/[\s-]+/g, '');
+}
+
 const FAILURE_SERVICE = 'Visual & Functional, Failed';
 const PASSED_SERVICE = 'Visual & Functional, Passed';
 const FAILURE_SOLUTION = 'Replace Battery';
@@ -120,13 +154,26 @@ export function isBattery(deviceType) {
 // can reuse the exact same numeric parsing/formatting/Min Ah/Model Number
 // formulas instead of duplicating them - see docs/battery-cleanup-rules.md
 // and docs/repair-fixed-rules.md.
-export function parseNumericField(raw) {
+//
+// `unitPattern` (optional): when given, a trailing unit word after the
+// number (any spacing, e.g. "12 V"/"12V") is stripped before parsing IF it
+// matches this pattern - see VOLTAGE_UNIT_PATTERN/AMPS_UNIT_PATTERN above.
+// Without `unitPattern` (every other caller - Post Test/Tested Ah/Min Ah,
+// and Repair/Fixed's typed Amps input), any trailing text is still
+// `invalid`, exactly as before - never guessed at for fields nobody has
+// asked for unit tolerance on.
+export function parseNumericField(raw, unitPattern = null) {
   if (isBlank(raw)) return { state: 'blank' };
   const trimmed = collapseWhitespace(String(raw));
-  if (!NUMERIC_PATTERN.test(trimmed)) return { state: 'invalid' };
-  const value = Number(trimmed);
+  const withUnit = /^(-?\d+(?:\.\d+)?)\s*([A-Za-z.]+)?$/.exec(trimmed);
+  if (!withUnit) return { state: 'invalid' };
+  const numPart = withUnit[1];
+  const unitPart = withUnit[2];
+  if (unitPart && (!unitPattern || !unitPattern.test(unitPart))) return { state: 'invalid' };
+  if (!NUMERIC_PATTERN.test(numPart)) return { state: 'invalid' };
+  const value = Number(numPart);
   if (!Number.isFinite(value)) return { state: 'invalid' };
-  return { state: 'valid', value, raw: trimmed };
+  return { state: 'valid', value, raw: numPart };
 }
 
 // Parses the adapter's "YYYY-MM-DD" local-calendar-date string (see
@@ -209,8 +256,8 @@ function asDisplayString(value) {
 
 // Classifies a single device record for Battery Cleanup. `record` must have
 // at least: scannumber, devicetype, modelNumber, ratedVoltage, amps,
-// preTest, postTest, minAh, testedAh, installDate, passed, service,
-// comment, solution, note (semantic names - see file header).
+// manufacturer, preTest, postTest, minAh, testedAh, installDate, passed,
+// service, comment, solution, note (semantic names - see file header).
 // `now` (a Date) is the reference point for the expiration calculation -
 // pass a fixed value in tests, defaults to the current moment.
 // `options.forcedFailureOutcome` is used only by the report-level pair rule
@@ -252,7 +299,7 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   }
 
   // --- Rated Voltage: numeric, required, formatted to 2 decimals ---
-  const voltageParsed = parseNumericField(record.ratedVoltage);
+  const voltageParsed = parseNumericField(record.ratedVoltage, VOLTAGE_UNIT_PATTERN);
   let voltageValue = null;
   if (voltageParsed.state === 'blank') {
     addFlag('ratedVoltage', BatteryBucket.MISSING_REQUIRED_VALUE, record.ratedVoltage, 'Rated Voltage is blank');
@@ -261,13 +308,18 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   } else {
     voltageValue = voltageParsed.value;
     const formatted = formatTwoDecimals(voltageValue);
-    if (voltageParsed.raw !== formatted) {
+    // Compares the FULL original trimmed text (unit suffix included, if
+    // any) against the canonical 2-decimal string - not just
+    // voltageParsed.raw (which is already unit-stripped) - so a value like
+    // "7.00 V" still triggers a change to strip the unit even though its
+    // numeric part alone is already correctly formatted.
+    if (collapseWhitespace(String(record.ratedVoltage)) !== formatted) {
       addChange('ratedVoltage', BatteryBucket.SAFE_FORMATTING, record.ratedVoltage, formatted);
     }
   }
 
   // --- Amps: numeric, required, formatted to 2 decimals ---
-  const ampsParsed = parseNumericField(record.amps);
+  const ampsParsed = parseNumericField(record.amps, AMPS_UNIT_PATTERN);
   let ampsValue = null;
   if (ampsParsed.state === 'blank') {
     addFlag('amps', BatteryBucket.MISSING_REQUIRED_VALUE, record.amps, 'Amps is blank');
@@ -276,8 +328,19 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
   } else {
     ampsValue = ampsParsed.value;
     const formatted = formatTwoDecimals(ampsValue);
-    if (ampsParsed.raw !== formatted) {
+    // Same reasoning as Rated Voltage above - compare the full original
+    // text (unit suffix included) against the canonical string.
+    if (collapseWhitespace(String(record.amps)) !== formatted) {
       addChange('amps', BatteryBucket.SAFE_FORMATTING, record.amps, formatted);
+    }
+  }
+
+  // --- Manufacturer: known-manufacturer spelling normalization (never
+  // invented, never touched when blank or not a recognized manufacturer) ---
+  if (!isBlank(record.manufacturer)) {
+    const canonical = MANUFACTURER_CANONICAL_BY_KEY[normalizeManufacturerKey(record.manufacturer)];
+    if (canonical && record.manufacturer !== canonical) {
+      addChange('manufacturer', BatteryBucket.MANUFACTURER_CORRECTION, record.manufacturer, canonical);
     }
   }
 

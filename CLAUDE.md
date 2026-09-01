@@ -34,7 +34,10 @@ reports, operated from a popup on the report's **Device Editor** page.
 2. **Battery Cleanup** — normalizes Battery devices' Rated Voltage/Amps/
    Post Test/Tested Ah formatting (Rated Voltage/Amps are the device's
    fixed rated values, e.g. `12.00`/`26.00` — not test readings, and
-   always preserved as flat 2-decimal numbers), clears Pre Test, fills a
+   always preserved as flat 2-decimal numbers, tolerating a trailing unit
+   suffix like `12 V`/`75.0 AH` that gets stripped), normalizes known
+   Manufacturer spelling variants (e.g. Power-Sonic — a narrow, growing
+   per-manufacturer dictionary, never fuzzy), clears Pre Test, fills a
    blank Post Test with a generated reading in `12.00`–`13.00` (the one
    deliberate exception to every other field's never-invent rule — see
    `docs/battery-cleanup-rules.md`; cosmetic only, never feeds the outcome
@@ -135,6 +138,18 @@ detail in `docs/buildingreports-dom-map.md`.
 - **Undo** reads `{ scannumber, before, after }` entries written by the last
   Apply, reverses them, and runs the reverse list through the *same* write
   queue — same pacing, same verification.
+- **"Copy Review Items" (added 2026-09-01)**: a popup button (below both
+  Result panels, visible once either Preview has run) that copies a plain-
+  text summary of every review-bucket item from the last Service Cleanup
+  Preview (`SERVICE_REVIEW_BUCKETS`: `ambiguousConflict`,
+  `unsupportedDeviceType`, `unsupportedField`, `needsReview`) and every
+  Battery Cleanup `reviewFlags` entry to the clipboard — scannumber, device
+  type, value, and reason for each. This is the answer to "make it easy to
+  see what the tool doesn't understand yet, so I know what rule to bring
+  back to Claude next" — see the project-direction memory. Pure
+  `navigator.clipboard.writeText`, no new permission, no persistence across
+  sessions (that's still open if ever wanted — ask before building it,
+  don't assume the shape).
 
 ### The manual-fix pattern (`suggestedFix` / `manualServiceFix`) — last resort, not a default
 

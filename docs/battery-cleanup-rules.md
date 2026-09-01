@@ -29,6 +29,7 @@ single bucket per device. Every Battery record produces:
 | `minAh` | Min Ah | `velocity1door` |
 | `testedAh` | Tested Ah | `velocity2door` |
 | `modelNumber` | Model Number | `modelnumber` |
+| `manufacturer` | Manufacturer | `manufacturer` |
 
 The dataIndex column is a genuine BuildingReports quirk, confirmed live via
 the `#deviceAttrGrid` (`mainDeviceAttr`) column config for a selected
@@ -61,6 +62,40 @@ battery -> `26.00`). Blank -> `Missing Required Value`. Non-numeric or
 negative -> `Invalid Numeric Value`. Both block Min Ah/Model Number
 generation for that record (see below) - already surfaced via this flag,
 no separate error is raised.
+
+**A trailing unit suffix is tolerated and stripped (added 2026-09-01,
+real-world examples confirmed: `12 V`, `12.0 V` for Rated Voltage; `75.0
+AH`, `7.0 AH` for Amps).** `parseNumericField`'s optional `unitPattern`
+parameter (`VOLTAGE_UNIT_PATTERN`/`AMPS_UNIT_PATTERN` in
+`rules/battery-cleanup.js`, exported for reuse) recognizes `V`/`VDC`/
+`Volt(s)` for Rated Voltage and `A`/`AH`/`Amp(s)` for Amps, case-
+insensitive, with or without a space before the number. An unrecognized
+suffix (e.g. `12 XYZ`) is still `Invalid Numeric Value`, never guessed at.
+This tolerance is opted into only by Rated Voltage and Amps - Post Test,
+Tested Ah, and Min Ah still reject any trailing text exactly as before (no
+one has asked for unit tolerance there). Repair/Fixed's Battery rule
+(`repair-battery.js`) reads the existing Rated Voltage with the same
+tolerance, so Model Number still derives correctly even when the
+pre-repair record's Rated Voltage carries a unit suffix.
+
+### Manufacturer
+
+**Added 2026-09-01, explicitly requested.** A narrow, per-manufacturer
+spelling-normalization dictionary (`MANUFACTURER_CANONICAL_BY_KEY` in
+`rules/battery-cleanup.js`) - currently just one entry: real-world Power-
+Sonic spelling variants (`powersonic`, `PowerSonic`, `Power Sonic`, `POWER
+SONIC`, any spacing/hyphenation/capitalization) normalize to `Power-Sonic`.
+Matched by stripping whitespace/hyphens and lowercasing, so it's tolerant
+of spacing/capitalization but never fuzzy/partial - a value that isn't a
+recognized manufacturer (e.g. `Duracell`, `System Sensor`) is left
+**completely untouched**, and blank is never invented. This is deliberately
+the first of what will likely become several manufacturer/company-specific
+entries over time (see the "many small rules" direction in project
+memory) - add a new key to the dictionary for the next one, never a
+generic "clean up any manufacturer" pattern. `manufacturer` is an ordinary
+`#devicelistGrid` column (semantic name = real dataIndex, same as
+`passed`/`service`/etc.) - no `BATTERY_FIELD_MAP` entry was needed to
+write it.
 
 ### Pre Test
 
@@ -334,6 +369,7 @@ Deterministic, never assumes missing means Passed:
 | `postTestGenerated` | Post Test was blank, filled with a generated `12.00`-`13.00` reading | Yes |
 | `minAhRecalculation` | Min Ah blank, misformatted, or wrong | Yes |
 | `modelNumberCorrection` | Model Number doesn't match derived value | Yes |
+| `manufacturerCorrection` | Manufacturer matched a known-variant dictionary entry | Yes |
 | `preTestWillBeCleared` | Pre Test had a value | Yes |
 | `missingRequiredValue` | Rated Voltage / Amps / Tested Ah blank | No - review only |
 | `invalidNumericValue` | Non-numeric or negative Rated Voltage / Amps | No - review only |

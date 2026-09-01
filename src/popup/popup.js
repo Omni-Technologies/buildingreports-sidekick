@@ -83,6 +83,11 @@ const repairCancelAllBtn = document.getElementById('repairCancelAllBtn');
 const repairResultSection = document.getElementById('repairResult');
 const repairResultText = document.getElementById('repairResultText');
 
+const reviewExportSection = document.getElementById('reviewExport');
+const copyReviewBtn = document.getElementById('copyReviewBtn');
+const copyReviewCount = document.getElementById('copyReviewCount');
+const reviewExportStatus = document.getElementById('reviewExportStatus');
+
 let activeTabId = null;
 let lastPreview = null; // { meta, summary }
 let lastBatteryPreview = null; // { meta, summary }
@@ -147,12 +152,25 @@ const BUCKET_LABELS = {
   needsReview: 'Needs review',
 };
 
+// Service Cleanup buckets that mean "the tool didn't know what to do with
+// this" - never auto-applied, always worth a human's attention. Shared by
+// renderSummary's Review list and updateReviewExport's clipboard export
+// below (see "Copy Review Items" - docs/cleanup-rules.md's classification
+// bucket table).
+const SERVICE_REVIEW_BUCKETS = new Set([
+  'ambiguousConflict',
+  'unsupportedDeviceType',
+  'unsupportedField',
+  'needsReview',
+]);
+
 const BATTERY_BUCKET_LABELS = {
   alreadyCorrect: 'Already correct',
   safeFormatting: 'Safe formatting change',
   postTestGenerated: 'Post Test value generated (was blank)',
   minAhRecalculation: 'Min Ah recalculation',
   modelNumberCorrection: 'Model Number correction',
+  manufacturerCorrection: 'Manufacturer correction',
   preTestWillBeCleared: 'Pre Test will be cleared',
   missingRequiredValue: 'Missing required value',
   invalidNumericValue: 'Invalid numeric value',
@@ -169,6 +187,7 @@ const BATTERY_BUCKET_LABELS = {
 const BATTERY_FIELD_LABELS = {
   ratedVoltage: 'Rated Voltage',
   amps: 'Amps',
+  manufacturer: 'Manufacturer',
   preTest: 'Pre Test',
   postTest: 'Post Test',
   minAh: 'Min Ah',
@@ -185,6 +204,7 @@ const BATTERY_FIELD_LABELS = {
 const BATTERY_COUNT_LABELS = {
   ratedVoltageFormattingChanges: 'Rated Voltage formatting changes',
   ampsFormattingChanges: 'Amps formatting changes',
+  manufacturerCorrections: 'Manufacturer corrections',
   preTestCleared: 'Pre Test fields to clear',
   postTestFormattingChanges: 'Post Test formatting changes',
   postTestGenerated: 'Post Test values generated (was blank)',
@@ -543,13 +563,7 @@ function renderSummary(summary) {
       .map(([bucket, count]) => `<div class="bucket-row"><span>${BUCKET_LABELS[bucket] || bucket}</span><span>${count}</span></div>`)
       .join('');
 
-  const reviewBuckets = new Set([
-    'ambiguousConflict',
-    'unsupportedDeviceType',
-    'unsupportedField',
-    'needsReview',
-  ]);
-  const reviewItems = summary.results.filter((r) => reviewBuckets.has(r.bucket));
+  const reviewItems = summary.results.filter((r) => SERVICE_REVIEW_BUCKETS.has(r.bucket));
   reviewSummary.textContent = `Review list (${reviewItems.length})`;
   reviewList.innerHTML = reviewItems.length
     ? reviewItems
@@ -585,6 +599,8 @@ function renderSummary(summary) {
         })
         .join('')
     : '<div>No examples.</div>';
+
+  updateReviewExport();
 }
 
 function renderBatterySummary(summary) {
@@ -665,7 +681,92 @@ function renderBatterySummary(summary) {
         })
         .join('')
     : '<div>No examples.</div>';
+
+  updateReviewExport();
 }
+
+// Gathers everything the last Preview flagged as "didn't know what to do
+// with this" - Service Cleanup's SERVICE_REVIEW_BUCKETS items and Battery
+// Cleanup's reviewFlags - into one plain-text block the user can paste
+// straight into a chat with Claude to decide the next rule to add. See
+// docs/current-state.md's "Known limitations"/project-direction memory:
+// this is the answer to "make it easy to see what the tool doesn't
+// understand yet." Pure text building, no DOM side effects - callable from
+// both the render functions (to keep the button's count live) and the
+// click handler itself.
+function buildReviewItemsList() {
+  const items = [];
+  if (lastPreview && lastPreview.summary) {
+    for (const r of lastPreview.summary.results) {
+      if (!SERVICE_REVIEW_BUCKETS.has(r.bucket)) continue;
+      items.push({
+        source: 'Service Cleanup',
+        scannumber: r.scannumber,
+        devicetype: r.devicetype,
+        label: BUCKET_LABELS[r.bucket] || r.bucket,
+        value: r.before,
+        reason: r.reason,
+      });
+    }
+  }
+  if (lastBatteryPreview && lastBatteryPreview.summary) {
+    for (const r of lastBatteryPreview.summary.reviewItems || []) {
+      for (const f of r.reviewFlags) {
+        items.push({
+          source: 'Battery Cleanup',
+          scannumber: r.scannumber,
+          devicetype: r.devicetype,
+          label: `${BATTERY_FIELD_LABELS[f.field] || f.field}: ${BATTERY_BUCKET_LABELS[f.bucket] || f.bucket}`,
+          value: f.before,
+          reason: f.reason,
+        });
+      }
+    }
+  }
+  return items;
+}
+
+function buildReviewItemsText(items) {
+  const profileLabel = lastPreview ? PROFILE_LABELS[lastPreview.summary.profileKey] || lastPreview.summary.profileKey : '';
+  const header = `BuildingReports Sidekick — Review Items${profileLabel ? ` (${profileLabel} profile)` : ''}`;
+  if (items.length === 0) return `${header}\n\nNothing to review - the last Preview classified everything.`;
+  const body = items
+    .map(
+      (it) =>
+        `#${it.scannumber} (${it.devicetype}) — ${it.source} — ${it.label}\n` +
+        `  Current value: ${it.value || '(blank)'}\n` +
+        `  Reason: ${it.reason}`
+    )
+    .join('\n\n');
+  return `${header} — ${items.length} item(s)\n\n${body}`;
+}
+
+// Keeps the "Copy Review Items (<n>)" button's count and visibility in
+// sync with whatever the last Preview(s) actually found - called from both
+// render functions since either can update independently, though in
+// practice both run together on every Preview click.
+function updateReviewExport() {
+  if (!lastPreview && !lastBatteryPreview) {
+    reviewExportSection.classList.add('hidden');
+    return;
+  }
+  reviewExportSection.classList.remove('hidden');
+  const items = buildReviewItemsList();
+  copyReviewCount.textContent = String(items.length);
+  copyReviewBtn.disabled = items.length === 0;
+  reviewExportStatus.textContent = '';
+}
+
+copyReviewBtn.addEventListener('click', async () => {
+  const items = buildReviewItemsList();
+  const text = buildReviewItemsText(items);
+  try {
+    await navigator.clipboard.writeText(text);
+    reviewExportStatus.textContent = `Copied ${items.length} review item(s) to clipboard.`;
+  } catch (err) {
+    reviewExportStatus.textContent = `Could not copy to clipboard: ${(err && err.message) || err}`;
+  }
+});
 
 function askConfirmWith(bar, textEl, yesEl, noEl, text, yesLabel) {
   return new Promise((resolve) => {

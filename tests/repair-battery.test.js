@@ -59,6 +59,12 @@ test('Model Number is derived from Rated Voltage + the new Amps', () => {
   assert.equal(r.writeValue.modelNumber, '12V-8Ah');
 });
 
+test('Model Number still derives correctly when the existing Rated Voltage carries a unit suffix', () => {
+  const record = makeBatteryRecord({ ratedVoltage: '12 V', amps: '7.00' });
+  const r = buildBatteryRepairChange(record, { ...VALID_INPUT, amps: '8.00' });
+  assert.equal(r.writeValue.modelNumber, '12V-8Ah');
+});
+
 test('Model Number is left out of the write payload when Rated Voltage is invalid/missing', () => {
   const record = makeBatteryRecord({ ratedVoltage: '' });
   const r = buildBatteryRepairChange(record, VALID_INPUT);

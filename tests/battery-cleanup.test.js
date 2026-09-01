@@ -194,6 +194,61 @@ test('blank Rated Voltage is flagged as missing and prevents Model Number genera
   assert.equal(reviewFlag(r, 'ratedVoltage').bucket, BatteryBucket.MISSING_REQUIRED_VALUE);
 });
 
+test('a unit suffix on Rated Voltage/Amps is stripped (real-world examples), and Model Number derives correctly', () => {
+  const variants = [
+    { ratedVoltage: '12 V', amps: '75.0 AH', voltage: '12.00', ampsFormatted: '75.00', model: '12V-75Ah' },
+    { ratedVoltage: '12.0 V', amps: '7.0 AH', voltage: '12.00', ampsFormatted: '7.00', model: '12V-7Ah' },
+    { ratedVoltage: '12V', amps: '7.00Ah', voltage: '12.00', ampsFormatted: '7.00', model: '12V-7Ah' },
+    { ratedVoltage: '12 volts', amps: '7 amps', voltage: '12.00', ampsFormatted: '7.00', model: '12V-7Ah' },
+  ];
+  for (const v of variants) {
+    const r = classifyBatteryRecord(
+      makeBatteryRecord({ ratedVoltage: v.ratedVoltage, amps: v.amps, modelNumber: 'WRONG' })
+    );
+    assert.equal(fieldChange(r, 'ratedVoltage').after, v.voltage, `ratedVoltage for "${v.ratedVoltage}"`);
+    assert.equal(fieldChange(r, 'amps').after, v.ampsFormatted, `amps for "${v.amps}"`);
+    assert.equal(fieldChange(r, 'modelNumber').after, v.model, `modelNumber for "${v.ratedVoltage}"/"${v.amps}"`);
+    assert.equal(reviewFlag(r, 'ratedVoltage'), undefined);
+    assert.equal(reviewFlag(r, 'amps'), undefined);
+  }
+});
+
+test('an unrecognized unit suffix on Rated Voltage/Amps is still flagged invalid, never guessed', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ ratedVoltage: '12 XYZ', amps: '7.00 XYZ' }));
+  assert.equal(reviewFlag(r, 'ratedVoltage').bucket, BatteryBucket.INVALID_NUMERIC_VALUE);
+  assert.equal(reviewFlag(r, 'amps').bucket, BatteryBucket.INVALID_NUMERIC_VALUE);
+});
+
+test('a unit suffix on Post Test/Tested Ah/Min Ah is NOT tolerated - only Rated Voltage/Amps opted in', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ postTest: '12.70 V', testedAh: '9.30 AH' }));
+  assert.equal(reviewFlag(r, 'postTest').bucket, BatteryBucket.INVALID_NUMERIC_VALUE);
+  assert.equal(reviewFlag(r, 'testedAh').bucket, BatteryBucket.INVALID_NUMERIC_VALUE);
+});
+
+test('Manufacturer: real-world Power-Sonic spelling variants normalize to "Power-Sonic"', () => {
+  const variants = ['powersonic', 'PowerSonic', 'Power Sonic', 'POWER SONIC', 'power-sonic', 'Power  Sonic'];
+  for (const manufacturer of variants) {
+    const r = classifyBatteryRecord(makeBatteryRecord({ manufacturer }));
+    assert.equal(fieldChange(r, 'manufacturer').after, 'Power-Sonic', `expected normalization for "${manufacturer}"`);
+    assert.equal(fieldChange(r, 'manufacturer').bucket, BatteryBucket.MANUFACTURER_CORRECTION);
+  }
+});
+
+test('Manufacturer already "Power-Sonic" produces no change', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ manufacturer: 'Power-Sonic' }));
+  assert.equal(fieldChange(r, 'manufacturer'), undefined);
+});
+
+test('Manufacturer: an unrelated value is left completely untouched, no rule for it yet', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ manufacturer: 'Duracell' }));
+  assert.equal(fieldChange(r, 'manufacturer'), undefined);
+});
+
+test('Manufacturer: blank is left untouched, never invented', () => {
+  const r = classifyBatteryRecord(makeBatteryRecord({ manufacturer: '' }));
+  assert.equal(fieldChange(r, 'manufacturer'), undefined);
+});
+
 test('invalid Amps prevents Min Ah and Model Number generation', () => {
   const r = classifyBatteryRecord(
     makeBatteryRecord({ ratedVoltage: '12.00', amps: 'bad', modelNumber: 'WRONG', minAh: 'WRONG' })

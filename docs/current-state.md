@@ -56,7 +56,14 @@ changes — it's meant to save a future session from re-deriving all of this.
   rule, cosmetic only). A `0.00` Post Test + `0.00` Tested Ah together with
   no "flat" marker anywhere is treated as an already-serviced/replaced
   battery and passes rather than fails (2026-08-24) — Install Date
-  expiration still independently applies.
+  expiration still independently applies. **Added 2026-09-01:** Rated
+  Voltage/Amps now tolerate a trailing unit suffix (`12 V`, `75.0 AH`,
+  etc. — stripped before parsing, unrecognized suffixes still flagged, not
+  guessed); Manufacturer gets a narrow, growing per-manufacturer spelling
+  dictionary (currently just Power-Sonic — `powersonic`/`PowerSonic`/
+  `Power Sonic`/etc. → `Power-Sonic`), a new field this action writes for
+  the first time (no adapter change needed — `manufacturer` already shares
+  its semantic name with its real dataIndex).
 - **Repaired / Fixed** — added 2026-08-24. Human-driven, unlike the two
   actions above: walks only devices currently marked Failed, one at a time,
   asking "was this repaired/replaced?" for each. Battery has its own form
@@ -84,6 +91,12 @@ changes — it's meant to save a future session from re-deriving all of this.
   1, checkpointed to `chrome.storage.local`, rate-limit backoff + bounded
   retries + manual Resume, Pause / Cancel Remaining. Used by all six write
   paths (Service/Battery/Repair × Apply/Undo). See `docs/architecture.md`.
+- **"Copy Review Items" (added 2026-09-01)** — a popup button that copies
+  every review-bucket item from the last Preview (Service Cleanup's
+  `SERVICE_REVIEW_BUCKETS` + Battery Cleanup's `reviewFlags`) to the
+  clipboard as plain text, so the user can paste it straight into a chat
+  with Claude to decide the next rule to write. See CLAUDE.md's Classify →
+  Preview → Apply → verify → Undo section.
 
 ## Tests
 
@@ -91,7 +104,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**244 tests, 0 failures** across `tests/*.test.js`
+**252 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `engine.test.js`, `repair-battery.test.js`,
 `repair-engine.test.js`, `repair-generic.test.js`, `semi-annual.test.js`,
@@ -197,6 +210,52 @@ no timezone/off-by-one-day issues (see `docs/repair-fixed-rules.md`).
   check is not a one-time historical footnote, check it every single time.
 
 ## Most recent successful live verification
+
+**2026-09-01, a real report (no customer/report identifiers recorded
+here):** Battery Cleanup's unit-suffix tolerance, the Power-Sonic
+Manufacturer rule, and the new "Copy Review Items" popup button:
+
+- **Unit suffix on Rated Voltage/Amps:** two real Batteries hand-set to
+  `12 V`/`75.0 AH` and `12.0 V`/`7.0 AH` respectively. Preview correctly
+  stripped both to `12.00`/`75.00` and `12.00`/`7.00`, recalculated Min Ah
+  from the corrected Amps, and correctly derived Model Number from the
+  corrected values (`12V-75Ah`, `12V-7Ah`) - confirming the fix also
+  resolved the Model Number side-effect the user suspected. Apply saved
+  and verified all fields against the live grid (`Saved: 3, Save
+  failures: 0`, combined with the Manufacturer test below).
+- **A real self-caught bug during this same test:** the initial fix
+  compared the already-unit-stripped numeric string against the formatted
+  2-decimal value to decide whether a change was needed, which silently
+  missed cases where the numeric part was already 2-decimal-formatted but
+  only the unit suffix itself needed stripping (e.g. `7.00Ah`) - caught by
+  the test suite itself (a failing assertion), fixed before this ever
+  reached live testing by comparing the full original text instead. See
+  `src/cleanup/rules/battery-cleanup.js`'s Rated Voltage/Amps comments.
+- **Manufacturer normalization:** a real Battery hand-set to `Power Sonic`
+  (with a space, no hyphen). Preview correctly classified `safeChange`,
+  `Power Sonic` → `Power-Sonic`; Apply saved and verified.
+- **Full Undo cycle confirmed working with the new field types:** the
+  popup's own "Undo Last Cleanup" (not a hand-restore) correctly reported
+  "restores 3 Battery field(s)" (matching the real entry count checked
+  first, no stale leftovers this time), and restored Rated Voltage/Amps/
+  Manufacturer to their state immediately before Apply (the hand-set test
+  values, not the true pre-test originals - expected, documented Undo
+  behavior). A final direct corrective write restored the true original
+  values, and a fresh Preview confirmed the report back to its exact
+  original baseline (`0 safe changes` both engines, Battery `2 Date
+  Expired` matching the original count, not the 1-Date-Expired-plus-1-
+  Date-Expired-and-Failed-Load-Test state produced mid-test by an
+  intentionally unrealistic test Amps value).
+- **"Copy Review Items"**: confirmed the button's live count matched the
+  Review list's real count, clicking it resolved `navigator.clipboard.
+  writeText` without error and updated the status text to "Copied N
+  review item(s)" - reading the clipboard back to verify exact text
+  content was not attempted, since it triggers a blocking native
+  permission dialog under browser automation; the successful write plus
+  status message was treated as sufficient confirmation.
+- `npm test`: 252/252 passing (8 new tests: 3 for the unit-suffix
+  tolerance/edge cases, 4 for Manufacturer, 1 for Repair/Fixed's Rated
+  Voltage read getting the same tolerance).
 
 **2026-08-31, a real report (no customer/report identifiers recorded
 here):** three real-world bugs reported by the user, each hand-set on a
