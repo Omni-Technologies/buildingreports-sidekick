@@ -16,7 +16,20 @@ Before touching any code, every session:
    change (`docs/cleanup-rules.md` for Service Cleanup,
    `docs/battery-cleanup-rules.md` for Battery Cleanup,
    `docs/repair-fixed-rules.md` for Repaired/Fixed).
-6. Run `git status` and inspect it before editing anything — know what's
+6. If the session involves connecting to a live report at all (a
+   bugfix, a new rule, a "why didn't this work" investigation), read
+   `docs/live-testing-workflow.md` **before opening the browser** — it's
+   the full procedure (connecting, hand-editing fields to set up a test,
+   the mandatory restore sequence, known gotchas), written so you don't
+   have to re-derive any of it. Two facts from it worth having in mind
+   immediately: **you cannot open the report yourself** — the user opens
+   it in their own logged-in Chrome, every session — and **you're
+   pre-authorized to hand-edit any field on the live report to set up a
+   test, every session, no need to ask first — the one non-negotiable
+   condition is putting every touched field back to its exact original
+   value before you finish** (see that doc's "restore obligation"
+   section for the actual sequence, including the Undo-history gotchas).
+7. Run `git status` and inspect it before editing anything — know what's
    already staged/modified/untracked before you add to it.
 
 ## What this is
@@ -275,7 +288,10 @@ every change. See `docs/current-state.md` for the current exact count.
 2. After editing any `src/` file: use the Chrome DevTools MCP
    `reload_extension` tool (or the extensions page's reload button), then
    `trigger_extension_action` (or click the toolbar icon) to reopen the
-   popup fresh — old popup instances don't pick up new code.
+   popup fresh — old popup instances don't pick up new code. For
+   multi-step MCP-driven popup testing (not just a single screenshot),
+   see `docs/live-testing-workflow.md`'s more reliable technique instead
+   of `trigger_extension_action`.
 3. Bump `ADAPTER_VERSION` in `adapter.js` whenever that file changes — a
    same-or-newer adapter left in an already-open tab is otherwise never
    replaced.
@@ -313,42 +329,13 @@ Rules that follow from there being one listing:
 ## Connecting through Chrome DevTools MCP
 
 **Always attach to the existing, already-authenticated BuildingReports
-report tab.** At the start of any browser-driven session:
-
-1. Confirm the MCP connection.
-2. `list_pages` — find the real BuildingReports.com tab.
-3. `select_page` it, then verify it's the real report (not a blank page)
-   before doing anything else — e.g. confirm `window.Ext` and
-   `window.ReportInspectionId` exist inside the Device Editor frame.
-
-**If MCP opens or shows only a blank Chrome window, or launches a
-new/separate Chrome instance instead of attaching to the existing one:
-stop.** Do not continue testing against it, do not silently switch to
-another automation method, and do not treat a blank page (or the new
-instance) as the report. Re-check the MCP connection, re-list pages, and
-ask the user to reconnect only when it genuinely can't be found any other
-way.
-
-Also: the report app is a classic nested frameset with the real Device
-Editor content two frames deep (`window.frames[0].frames[N]`, N varies -
-don't hardcode it, scan for the frame with `window.Ext` and
-`window.ReportInspectionId`; see `docs/buildingreports-dom-map.md` §1) -
-the outermost `window.location.href` never changes, so check `Ext`/
-`ReportInspectionId` inside the right frame, not the top-level URL, to
-confirm you're really connected to a live report.
-
-**Testing the actual popup UI via MCP:** `trigger_extension_action` opens
-the real ephemeral toolbar popup, but it reliably auto-closes (`No page
-found` on the next tool call) before a multi-step click/wait/snapshot
-sequence can finish - it's not reliable for anything beyond a single
-screenshot. Instead, open `popup.html` directly as a normal, persistent
-tab: `new_page({ url: 'chrome-extension://<id>/src/popup/popup.html',
-background: true })`, with the report tab already the foreground/active
-tab. `popup.js` finds its target via `chrome.tabs.query({active: true,
-currentWindow: true})`, which still correctly resolves to the report tab
-(not the new popup tab) as long as `background: true` was used - confirmed
-live 2026-08-31. This gives a normal tab that survives arbitrarily many
-click/wait_for/snapshot round-trips, exactly like testing any other page.
+report tab — never a new/separate Chrome instance, never a blank page.**
+Full step-by-step procedure (connecting, frame-scanning, loading/
+reloading the extension, testing the popup UI reliably, hand-editing
+fields to set up a test, and — critically — the mandatory restore
+sequence afterward): **`docs/live-testing-workflow.md`** — read it before
+opening the browser, every session that touches a live report. Don't
+re-derive any of this from scratch; it's already written down.
 
 ## Safety restrictions
 
@@ -366,7 +353,10 @@ Also: every write operation touches a **real, live customer report** the
 moment it's connected via MCP — there is no sandbox/staging environment.
 Treat any live Apply/Undo test as production-affecting; get explicit
 confirmation before a full-report (not a small controlled set) Apply, and
-never fire writes outside the paced queue (see above).
+never fire writes outside the paced queue (see above). Hand-editing
+individual fields to set up a small test is pre-authorized (no need to
+ask each time) **provided you restore them** — see
+`docs/live-testing-workflow.md` for the exact restore sequence.
 
 ## Definition of done for every feature
 
