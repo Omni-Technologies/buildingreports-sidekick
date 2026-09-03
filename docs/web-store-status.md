@@ -23,11 +23,15 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.6 (`releases/buildingreports-sidekick-v0.1.6.zip`) — generated 2026-09-03, not yet confirmed submitted |
-| Latest version submitted for review | 0.1.4 — user confirmed submitted 2026-08-06, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.3 (submitted 2026-08-05) and the earlier 0.1.1 initial submission. **0.1.6 exceeds this and is ready to upload once the user submits it** (0.1.5 was generated 2026-08-24 but never confirmed submitted). Update this row only after the user confirms a version was actually submitted. |
+| Latest locally generated version | 0.1.6 (`releases/buildingreports-sidekick-v0.1.6.zip`) — generated 2026-09-03 |
+| Latest version submitted for review | **0.1.6** — user confirmed submitted 2026-09-03, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.4 (submitted 2026-08-06) — 0.1.5 was generated but never confirmed submitted, so it was skipped. |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
-## Since the last submitted release (0.1.4)
+## Since the last submitted release (0.1.6)
+
+- (nothing yet — no commits since 0.1.6 was submitted 2026-09-03)
+
+### Prior submission: 0.1.6 (submitted 2026-09-03, superseding 0.1.4)
 
 - **0.1.6 release notes**: see `CHANGELOG.md`'s `## [0.1.6]` section - a
   new **Copy Review Items** popup button; Battery Cleanup's Manufacturer
@@ -36,8 +40,8 @@ explicitly says so.
   "Visually & Functional" typo and a bare "Tested" placeholder (using the
   Passed checkbox as the outcome, only when checked); Monitoring's N/A
   detection tolerates a leading "N/A"/"NA" followed by free text. No
-  manifest permission changes. **0.1.6 was generated 2026-09-03**, not
-  yet confirmed submitted by the user.
+  manifest permission changes. **0.1.6 was generated 2026-09-03 and
+  submitted the same day.**
 
 - **Permissions changed?** No — manifest permissions unchanged
   (`scripting`, `storage`, `activeTab`, and the
