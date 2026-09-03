@@ -72,12 +72,15 @@ WHAT IT DOES
    ambiguous, unsupported, or already correct is left untouched.
 
 2. Battery Cleanup — scans every Battery device in the report and
-   normalizes Rated Voltage / Amps / Post Test / Tested Ah formatting,
-   clears Pre Test, recalculates Min Ah, corrects Model Number, and sets
-   the Passed/Failed outcome from Install Date and Tested Ah vs Min
-   Ah. When either side of an unambiguous Left/Right battery pair fails,
-   both sides are failed together; Floor, Direction, Location, Description,
-   and Area/Suite are read only to identify that pair. Anything missing,
+   normalizes Rated Voltage / Amps / Post Test / Tested Ah formatting
+   (tolerating a trailing unit suffix like "12 V"), clears Pre Test,
+   recalculates Min Ah, corrects Model Number, normalizes known
+   Manufacturer spelling variants (a narrow, growing dictionary, e.g.
+   "Power-Sonic"), and sets the Passed/Failed outcome from Install Date
+   and Tested Ah vs Min Ah. When either side of an unambiguous Left/Right
+   battery pair fails, both sides are failed together; Floor, Direction,
+   Location, Description, and Area/Suite are read only to identify that
+   pair. Anything missing,
    invalid, or suspicious is flagged instead of guessed at, and ambiguous
    pairs are left unpaired. Shares its Preview/Apply/Undo buttons with
    Clean Up Service Entries (both run together on one click) while staying
@@ -229,12 +232,15 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   site.
 - **User activity**: No analytics/telemetry of any kind.
 - **Website content**: Yes — device record fields (Service text, Battery
-  attribute values including Install Date, Communicator/Monitoring's
-  attribute field, an Annual Heat Detector's Restorable field, third-party
-  serviced devices' Comment/Solution/Note, and the Floor/Direction/
-  Location/Description/Area-Suite context used to identify battery pairs)
-  from the BuildingReports report you have open, processed locally as
-  described above and in `PRIVACY.md`.
+  attribute values including Install Date and Manufacturer, Communicator/
+  Monitoring's attribute field, an Annual Heat Detector's Restorable
+  field, third-party serviced devices' Comment/Solution/Note, and the
+  Floor/Direction/Location/Description/Area-Suite context used to
+  identify battery pairs) from the BuildingReports report you have open,
+  processed locally as described above and in `PRIVACY.md`. A "Copy
+  Review Items" button additionally copies a plain-text summary of
+  unrecognized/needs-review items to your own system clipboard on
+  request — nothing is stored or sent anywhere by that action.
 
 Certify: "I do not sell or transfer user data to third parties" and "I do
 not use or transfer user data for purposes unrelated to the item's single

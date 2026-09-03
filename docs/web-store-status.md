@@ -23,24 +23,41 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.5 (`releases/buildingreports-sidekick-v0.1.5.zip`) — generated 2026-08-24, not yet confirmed submitted |
-| Latest version submitted for review | 0.1.4 — user confirmed submitted 2026-08-06, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.3 (submitted 2026-08-05) and the earlier 0.1.1 initial submission. **0.1.5 exceeds this and is ready to upload once the user submits it** — update this row only after the user confirms it was actually submitted. |
+| Latest locally generated version | 0.1.6 (`releases/buildingreports-sidekick-v0.1.6.zip`) — generated 2026-09-03, not yet confirmed submitted |
+| Latest version submitted for review | 0.1.4 — user confirmed submitted 2026-08-06, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.3 (submitted 2026-08-05) and the earlier 0.1.1 initial submission. **0.1.6 exceeds this and is ready to upload once the user submits it** (0.1.5 was generated 2026-08-24 but never confirmed submitted). Update this row only after the user confirms a version was actually submitted. |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last submitted release (0.1.4)
 
+- **0.1.6 release notes**: see `CHANGELOG.md`'s `## [0.1.6]` section - a
+  new **Copy Review Items** popup button; Battery Cleanup's Manufacturer
+  spelling-normalization rule (Power-Sonic to start) and unit-suffix
+  tolerance on Rated Voltage/Amps; Service Cleanup recognizes the
+  "Visually & Functional" typo and a bare "Tested" placeholder (using the
+  Passed checkbox as the outcome, only when checked); Monitoring's N/A
+  detection tolerates a leading "N/A"/"NA" followed by free text. No
+  manifest permission changes. **0.1.6 was generated 2026-09-03**, not
+  yet confirmed submitted by the user.
+
 - **Permissions changed?** No — manifest permissions unchanged
   (`scripting`, `storage`, `activeTab`, and the
-  `https://www.buildingreports.com/*` host permission). Everything in
-  0.1.5, including the new Install Date **write** and the Repaired/Fixed
-  action's typed-note input, goes through the existing adapter/
-  single-record-save/write-queue machinery under those same permissions.
-- **Privacy disclosures updated?** Yes, twice since 0.1.4: 2026-08-06 (see
-  history below) and **2026-08-24** — `PRIVACY.md` and
-  `docs/chrome-web-store-submission.md` both revised to describe the new
-  Repaired/Fixed action, including that it writes Install Date (previously
-  read-only) and takes typed technician/company/note input from the user,
-  written into existing device fields.
+  `https://www.buildingreports.com/*` host permission), through 0.1.6.
+  Everything in 0.1.5, including the new Install Date **write** and the
+  Repaired/Fixed action's typed-note input, and everything in 0.1.6,
+  including the new Manufacturer field write and the clipboard-based
+  Copy Review Items button, goes through existing machinery/APIs under
+  those same permissions (clipboard write needs no manifest permission
+  for a user-gesture-triggered popup action).
+- **Privacy disclosures updated?** Yes, three times since 0.1.4:
+  2026-08-06 (see history below), **2026-08-24**, and **2026-09-03**.
+  The 2026-08-24 revision described the new Repaired/Fixed action,
+  including that it writes Install Date (previously read-only) and takes
+  typed technician/company/note input from the user, written into
+  existing device fields. The 2026-09-03 revision (`PRIVACY.md` and
+  `docs/chrome-web-store-submission.md` both, for 0.1.6) added
+  Manufacturer to the explicit list of Battery attribute fields the
+  extension writes, and documented the new Copy Review Items clipboard
+  action.
 - **0.1.5 release notes**: see `CHANGELOG.md`'s `## [0.1.5]` section - the
   new Repaired/Fixed action (Battery form + generic fallback form for
   every other device type, own Apply/Undo buttons/Undo history); Battery

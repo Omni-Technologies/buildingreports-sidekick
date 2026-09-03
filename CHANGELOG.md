@@ -20,6 +20,25 @@ When writing an entry, say what changed from the user's point of view:
 ## [Unreleased]
 - (add notes here before running a release)
 
+## [0.1.6] - 2026-09-03
+- **Added**: A **Copy Review Items** button in the popup - copies every
+  unrecognized/needs-review item from the last Preview (both Service
+  Cleanup and Battery Cleanup) to the clipboard as plain text, so they're
+  easy to bring back as a rule request.
+- **Added**: Battery Cleanup now normalizes known Manufacturer spelling
+  variants (starting with Power-Sonic) to a canonical form. Unrecognized
+  manufacturers are left untouched.
+- **Fixed**: Battery Cleanup's Rated Voltage/Amps now tolerate a trailing
+  unit suffix (e.g. "12 V", "75.0 AH") instead of flagging it as an
+  invalid value.
+- **Fixed**: Service Cleanup now recognizes the "Visually & Functional"
+  typo the same as "Visual & Functional".
+- **Fixed**: Service Cleanup now recognizes a bare "Tested" placeholder,
+  using the Passed checkbox as the outcome when Passed is checked
+  (Passed unchecked is still never guessed as Failed).
+- **Fixed**: Monitoring's N/A detection now tolerates a leading "N/A"/"NA"
+  followed by free-text explanation, not just an exact match.
+
 ## [0.1.5] - 2026-08-24
 - **Added**: A new **Repaired / Fixed** action - walks only the devices
   the currently open report shows as Failed, one at a time, and asks you

@@ -40,8 +40,10 @@ scoped to the BuildingReports Device Editor page you already have open:
    written back through BuildingReports' own Save button/save API. This
    covers: the Service field (every supported device type); Battery's
    outcome fields (Passed/Comment/Solution/Note) and attribute fields
-   (Rated Voltage/Amps/Pre Test/Post Test/Min Ah/Tested Ah/Model Number);
-   for Communicator and Monitoring specifically, one additional
+   (Rated Voltage/Amps/Pre Test/Post Test/Min Ah/Tested Ah/Model Number/
+   Manufacturer — the last a narrow, growing spelling-normalization
+   dictionary, e.g. "Power-Sonic", added 2026-09-01); for Communicator
+   and Monitoring specifically, one additional
    device-attribute field each (Communicator's Restore Time, Monitoring's
    Confirmed Time) plus Monitoring's Comment/Solution fields; for an
    Annual-profile Heat Detector, one additional device-attribute checkbox
@@ -80,6 +82,12 @@ scoped to the BuildingReports Device Editor page you already have open:
      (which devices are pending/saved/failed), so closing the popup
      mid-run doesn't lose progress. This is deleted once the run
      completes or is cancelled/discarded.
+4. **"Copy Review Items" (added 2026-09-01)** — a popup button that
+   copies a plain-text summary (scannumber, device type, value, reason)
+   of the current Preview's unrecognized/needs-review items to your own
+   system clipboard, via the browser's standard clipboard API. Nothing
+   is stored or sent anywhere; it stays on your clipboard exactly like
+   any other manual copy/paste until you paste it somewhere yourself.
 
 None of this data ever leaves your machine except as part of the normal
 BuildingReports save request your own click triggers — the same request
