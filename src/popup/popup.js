@@ -88,6 +88,11 @@ const copyReviewBtn = document.getElementById('copyReviewBtn');
 const copyReviewCount = document.getElementById('copyReviewCount');
 const reviewExportStatus = document.getElementById('reviewExportStatus');
 
+const copyEmailBtn = document.getElementById('copyEmailBtn');
+const emailSummaryResult = document.getElementById('emailSummaryResult');
+const emailSummaryStatus = document.getElementById('emailSummaryStatus');
+const emailSummaryNeedsReview = document.getElementById('emailSummaryNeedsReview');
+
 let activeTabId = null;
 let lastPreview = null; // { meta, summary }
 let lastBatteryPreview = null; // { meta, summary }
@@ -247,6 +252,7 @@ function setBusy(isBusy) {
   undoBtn.disabled = isBusy || !activeTabId;
   repairStartBtn.disabled = isBusy || !activeTabId;
   repairUndoBtn.disabled = isBusy || !activeTabId;
+  copyEmailBtn.disabled = isBusy || !activeTabId;
 }
 
 // Turns a background.js `progress` summary (see write-queue.js's
@@ -445,6 +451,7 @@ async function init() {
     undoBtn.disabled = true;
     repairStartBtn.disabled = true;
     repairUndoBtn.disabled = true;
+    copyEmailBtn.disabled = true;
     return;
   }
   const modifyNote = result.canModify ? '' : ' (no modify permission detected)';
@@ -765,6 +772,104 @@ copyReviewBtn.addEventListener('click', async () => {
     reviewExportStatus.textContent = `Copied ${items.length} review item(s) to clipboard.`;
   } catch (err) {
     reviewExportStatus.textContent = `Could not copy to clipboard: ${(err && err.message) || err}`;
+  }
+});
+
+// "Copy Email Lists" - see docs/cleanup-rules.md's "Email discrepancy
+// lists" section and src/cleanup/email-summary.js for the classification/
+// grouping rules. This is an independent, always-fresh read (its own
+// 'emailSummary' background message, not derived from lastPreview/
+// lastBatteryPreview) - it reflects whatever's on the report right now,
+// including any manual edits made after Cleanup ran.
+//
+// Rendered as real HTML (colored, nested <ul>/<li>) and written to the
+// clipboard as both text/html and text/plain via a ClipboardItem, so
+// pasting into Outlook/Gmail keeps the red Failed section and actual
+// bullets - navigator.clipboard.writeText alone (used by Copy Review
+// Items) would lose both. Needs no new manifest permission - same
+// user-gesture-gated Clipboard API as the plain-text write already used.
+const EMAIL_FAILED_COLOR = '#c00000';
+
+function formatGroupLine(group) {
+  const modelPart = group.modelNumber ? `(${group.modelNumber})` : '';
+  return `(${group.count}) ${group.deviceType}${modelPart}: ${group.locationText}`.trim();
+}
+
+function buildEmailHtml(failed, passedWithNotes) {
+  const section = (heading, groups, color) => {
+    if (groups.length === 0) return '';
+    const colorAttr = color ? ` style="color:${color};"` : '';
+    const items = groups
+      .map(
+        (g) =>
+          `<li${colorAttr}>${escapeHtml(formatGroupLine(g))}` +
+          `<ul><li${colorAttr}>${escapeHtml(g.reasonText)}</li></ul></li>`
+      )
+      .join('');
+    return `<p${colorAttr}><strong>${escapeHtml(heading)}</strong></p><ul>${items}</ul>`;
+  };
+  return (
+    section('Devices Failed Listed:', failed, EMAIL_FAILED_COLOR) +
+    section('Devices Passed/Untested With Notes Listed:', passedWithNotes, null)
+  );
+}
+
+function buildEmailPlainText(failed, passedWithNotes) {
+  const section = (heading, groups) => {
+    if (groups.length === 0) return '';
+    const items = groups.map((g) => `- ${formatGroupLine(g)}\n    - ${g.reasonText}`).join('\n\n');
+    return `${heading}\n\n${items}`;
+  };
+  return [section('Devices Failed Listed:', failed), section('Devices Passed/Untested With Notes Listed:', passedWithNotes)]
+    .filter((s) => s)
+    .join('\n\n');
+}
+
+async function copyRichText(html, plain) {
+  if (navigator.clipboard && typeof window.ClipboardItem === 'function') {
+    const item = new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    });
+    await navigator.clipboard.write([item]);
+    return;
+  }
+  // Fallback for a browser build without ClipboardItem support - plain
+  // text still pastes correctly, just without color/bullet formatting.
+  await navigator.clipboard.writeText(plain);
+}
+
+copyEmailBtn.addEventListener('click', async () => {
+  if (!activeTabId) return;
+  copyEmailBtn.disabled = true;
+  emailSummaryResult.classList.remove('hidden');
+  emailSummaryStatus.textContent = 'Scanning report...';
+  emailSummaryNeedsReview.classList.add('hidden');
+  try {
+    const result = await sendMessage({ type: 'emailSummary' });
+    if (!result || !result.found) {
+      emailSummaryStatus.textContent = 'Report not found on this tab.';
+      return;
+    }
+    const { failed, passedWithNotes, needsReview } = result.summary;
+    if (failed.length === 0 && passedWithNotes.length === 0) {
+      emailSummaryStatus.textContent = 'Nothing to copy - no Failed devices and no Passed/Untested devices with notes found.';
+    } else {
+      const html = buildEmailHtml(failed, passedWithNotes);
+      const plain = buildEmailPlainText(failed, passedWithNotes);
+      await copyRichText(html, plain);
+      emailSummaryStatus.textContent = `Copied ${failed.length} Failed group(s) and ${passedWithNotes.length} Passed/Untested-with-notes group(s) to clipboard.`;
+    }
+    if (needsReview.length > 0) {
+      emailSummaryNeedsReview.classList.remove('hidden');
+      emailSummaryNeedsReview.textContent =
+        `${needsReview.length} Failed device(s) have no Comment/Solution/Note to build a reason from - ` +
+        `not included above, check manually: ${needsReview.map((r) => `#${r.scannumber} (${r.devicetype})`).join(', ')}`;
+    }
+  } catch (err) {
+    emailSummaryStatus.textContent = `Could not copy email lists: ${(err && err.message) || err}`;
+  } finally {
+    copyEmailBtn.disabled = !activeTabId;
   }
 });
 

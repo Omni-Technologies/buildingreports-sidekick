@@ -193,6 +193,23 @@
     <div id="repairResultText"></div>
   </section>
 
+  <header>
+    <h1>Email Lists</h1>
+  </header>
+
+  <section class="panel">
+    <div>Scans every device currently in the report (independent of Preview - always reads live) and builds the two grouped bullet lists for your discrepancy email: Failed devices, and Passed/Untested devices that still carry a note. Copies formatted (colored, bulleted) text ready to paste straight into Outlook/Gmail.</div>
+  </section>
+
+  <section class="panel actions">
+    <button id="copyEmailBtn" disabled>Copy Email Lists</button>
+  </section>
+
+  <section id="emailSummaryResult" class="panel hidden">
+    <div id="emailSummaryStatus" class="hint"></div>
+    <div id="emailSummaryNeedsReview" class="hint hidden"></div>
+  </section>
+
   <details id="diagnostics" class="panel hidden">
     <summary>Diagnostics</summary>
     <pre id="diagnosticsText"></pre>

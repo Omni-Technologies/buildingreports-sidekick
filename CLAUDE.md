@@ -15,7 +15,8 @@ Before touching any code, every session:
 5. Read the documentation for whichever cleanup action you're about to
    change (`docs/cleanup-rules.md` for Service Cleanup,
    `docs/battery-cleanup-rules.md` for Battery Cleanup,
-   `docs/repair-fixed-rules.md` for Repaired/Fixed).
+   `docs/repair-fixed-rules.md` for Repaired/Fixed,
+   `docs/email-lists-rules.md` for Copy Email Lists).
 6. If the session involves connecting to a live report at all (a
    bugfix, a new rule, a "why didn't this work" investigation), read
    `docs/live-testing-workflow.md` **before opening the browser** — it's
@@ -108,6 +109,7 @@ cleanup/engine.js → cleanup/classify.js → cleanup/{device-type-matcher,one-h
                                          ↖ config/inspection-profiles/{annual,semi-annual}.js
 cleanup/battery-engine.js → cleanup/rules/battery-cleanup.js
 cleanup/repair-engine.js → cleanup/repair-battery.js (imported into popup.js too — pure, no chrome.* dependency)
+cleanup/email-summary.js (read-only report scan, no write path at all — see docs/email-lists-rules.md)
 cleanup/write-queue.js   (shared by all 6 write operations: Service/Battery/Repair × Apply/Undo)
 ```
 
@@ -132,6 +134,7 @@ detail in `docs/buildingreports-dom-map.md`.
 | `src/config/inspection-profiles/annual.js` / `semi-annual.js` | Per-profile device lists, preserve phrases, prefix rules |
 | `src/cleanup/battery-engine.js` / `rules/battery-cleanup.js` | Battery Cleanup's report-level aggregation and per-record rules |
 | `src/cleanup/repair-engine.js` / `repair-battery.js` | Repaired/Fixed's Failed-device scan + per-device-type rule dispatch, and the Battery rule itself |
+| `src/cleanup/email-summary.js` | Copy Email Lists' report-wide Failed / Passed-with-notes scan, grouping, and pluralization — pure logic, no writes |
 | `src/cleanup/write-queue.js` | Paced, checkpointed, rate-limit-aware write coordinator — pure logic |
 | `tests/*.test.js` | `node --test`, synthetic fixtures only (`tests/fixtures.js`) |
 
@@ -163,6 +166,22 @@ detail in `docs/buildingreports-dom-map.md`.
   `navigator.clipboard.writeText`, no new permission, no persistence across
   sessions (that's still open if ever wanted — ask before building it,
   don't assume the shape).
+- **"Copy Email Lists" (added 2026-09-09)**: a standalone, read-only popup
+  feature, architecturally unlike everything else in this file — it never
+  writes to BuildingReports and never depends on Service/Battery Cleanup's
+  Preview having run. It scans every device currently in the report fresh
+  and builds the two grouped bullet lists the user was manually retyping
+  into a customer discrepancy email: Failed devices (grouped by device
+  type + Model Number + location text + reason, counted/pluralized, with
+  Battery Cleanup's Left/Right pairing columns reused to strip the marker
+  word and append a "Left And Right \<Plural\>" suffix) and Passed/Untested
+  devices that still carry a Note/Comment/Solution. A Failed device with no
+  usable reason is flagged, never guessed. Copies real HTML (`text/html` +
+  `text/plain` via `ClipboardItem`, not plain `writeText`) so pasting into
+  Outlook/Gmail preserves the red Failed section and actual bullets — no
+  new manifest permission (same user-gesture-gated Clipboard API). No
+  subject/greeting/sign-off generated — explicitly not wanted; the user
+  handles those. Full rule reference: `docs/email-lists-rules.md`.
 
 ### The manual-fix pattern (`suggestedFix` / `manualServiceFix`) — last resort, not a default
 

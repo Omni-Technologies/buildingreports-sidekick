@@ -4,6 +4,7 @@ import { getProfile } from '../config/inspection-profiles/index.js';
 import { createCheckpoint, runQueue, prepareResume, summarize, isComplete } from '../cleanup/write-queue.js';
 import { classifyThirdPartyServiceRecord } from '../cleanup/third-party-service-parser.js';
 import { scanFailedDevices } from '../cleanup/repair-engine.js';
+import { buildEmailSummary } from '../cleanup/email-summary.js';
 
 // Third-party serviced devices' 31-character Service limit - see
 // docs/cleanup-rules.md's "Third-Party Serviced Devices" section.
@@ -313,6 +314,21 @@ async function handlePreview(tabId, profileKey) {
   const records = await getAllRecords(tabId, host.frameId);
   if (!records) return { found: false };
   const summary = runCleanup(records, profile);
+  return { found: true, meta: host.meta, summary };
+}
+
+// "Copy Email Lists" - an independent, read-only, always-fresh scan of
+// every device currently in the report (not dependent on Service/Battery
+// Cleanup having run at all - see docs/cleanup-rules.md's "Email
+// discrepancy lists" section). Pure classification lives in
+// cleanup/email-summary.js; this just fetches fresh records the same way
+// handlePreview does.
+async function handleEmailSummary(tabId) {
+  const host = await detectReport(tabId);
+  if (!host) return { found: false };
+  const records = await getAllRecords(tabId, host.frameId);
+  if (!records) return { found: false };
+  const summary = buildEmailSummary(records);
   return { found: true, meta: host.meta, summary };
 }
 
@@ -952,6 +968,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         case 'manualServiceFix':
           sendResponse(await handleManualServiceFix(tabId, message.scannumber, message.newValue));
+          break;
+        case 'emailSummary':
+          sendResponse(await handleEmailSummary(tabId));
           break;
         case 'batteryPreview':
           sendResponse(await handleBatteryPreview(tabId));

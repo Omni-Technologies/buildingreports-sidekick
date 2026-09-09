@@ -97,6 +97,24 @@ changes — it's meant to save a future session from re-deriving all of this.
   clipboard as plain text, so the user can paste it straight into a chat
   with Claude to decide the next rule to write. See CLAUDE.md's Classify →
   Preview → Apply → verify → Undo section.
+- **"Copy Email Lists" (added 2026-09-09)** — an independent, read-only
+  popup feature (`src/cleanup/email-summary.js` + `background.js`'s
+  `emailSummary` message) that scans every device currently in the report
+  (not derived from Service/Battery Cleanup's own Preview state — always a
+  fresh read) and builds the two grouped bullet lists the user manually
+  retypes into a customer discrepancy email: Failed devices (grouped by
+  device type + Model Number + location text + reason, counted and
+  pluralized) and Passed/Untested devices that still carry a
+  Note/Comment/Solution. Reuses Battery Cleanup's Left/Right pairing
+  column logic (`floor`/`direction`/`location`/`description`/`areasuite`)
+  to strip the marker word and append a "Left And Right \<Plural\>" suffix
+  when a group contains both sides. A Failed device with no
+  Note/Comment/Solution to build a reason from is flagged in a separate
+  `needsReview` list, never guessed. Copies real HTML (`text/html` +
+  `text/plain` via `ClipboardItem`) so pasting into Outlook/Gmail keeps
+  the red Failed section and actual bullets — no manifest permission
+  change (same user-gesture-gated Clipboard API `writeText` already used).
+  Full rule reference: `docs/email-lists-rules.md`.
 
 ## Tests
 
@@ -104,11 +122,12 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**252 tests, 0 failures** across `tests/*.test.js`
+**263 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
-`communications-cleanup.test.js`, `engine.test.js`, `repair-battery.test.js`,
-`repair-engine.test.js`, `repair-generic.test.js`, `semi-annual.test.js`,
-`third-party-service-parser.test.js`, `write-queue.test.js`). Synthetic
+`communications-cleanup.test.js`, `email-summary.test.js`, `engine.test.js`,
+`repair-battery.test.js`, `repair-engine.test.js`, `repair-generic.test.js`,
+`semi-annual.test.js`, `third-party-service-parser.test.js`,
+`write-queue.test.js`). Synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
 this count drifts from what's actually reported by `npm test`, trust the
 live run, not this file.
@@ -478,6 +497,8 @@ anywhere in this repo):
 - `src/cleanup/repair-engine.js` / `repair-<devicetype>.js` — a new
   Repaired/Fixed device-type rule; see `docs/repair-fixed-rules.md` "How to
   add the next device type's rule".
+- `src/cleanup/email-summary.js` — Copy Email Lists' grouping/reason/
+  pluralization rules; see `docs/email-lists-rules.md`.
 - `src/site-adapters/buildingreports/adapter.js` — only if a new field
   mapping or a genuinely new BuildingReports interaction is needed; keep
   single-record, keep JSON-in/JSON-out.
