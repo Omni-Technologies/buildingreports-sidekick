@@ -1,6 +1,6 @@
 {
   "name": "buildingreports-sidekick",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "Unofficial local Chrome extension with cleanup/editing tools for BuildingReports inspection reports. Not affiliated with or endorsed by BuildingReports.",

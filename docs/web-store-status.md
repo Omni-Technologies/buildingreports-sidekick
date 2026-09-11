@@ -23,13 +23,17 @@ explicitly says so.
 
 | Field | Value |
 |---|---|
-| Latest locally generated version | 0.1.6 (`releases/buildingreports-sidekick-v0.1.6.zip`) — generated 2026-09-03 |
+| Latest locally generated version | 0.1.7 (`releases/buildingreports-sidekick-v0.1.7.zip`) — generated 2026-09-11 |
 | Latest version submitted for review | **0.1.6** — user confirmed submitted 2026-09-03, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.4 (submitted 2026-08-06) — 0.1.5 was generated but never confirmed submitted, so it was skipped. |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last submitted release (0.1.6)
 
-- (nothing yet — no commits since 0.1.6 was submitted 2026-09-03)
+- **0.1.7** (generated 2026-09-11, not yet confirmed submitted): a new
+  **Copy Email Lists** popup button — see `CHANGELOG.md`'s `## [0.1.7]`
+  section and `docs/email-lists-rules.md` for the full rule reference. No
+  manifest permission changes; `PRIVACY.md` and
+  `docs/chrome-web-store-submission.md` both updated the same day.
 
 ### Prior submission: 0.1.6 (submitted 2026-09-03, superseding 0.1.4)
 

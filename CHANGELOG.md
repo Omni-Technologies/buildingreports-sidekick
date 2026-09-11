@@ -20,6 +20,15 @@ When writing an entry, say what changed from the user's point of view:
 ## [Unreleased]
 - (add notes here before running a release)
 
+## [0.1.7] - 2026-09-11
+- **Added**: A **Copy Email Lists** button in the popup - an independent,
+  read-only scan of the entire report (not tied to Preview) that builds
+  the two grouped bullet lists for a customer discrepancy email: Failed
+  devices and Passed/Untested devices that still carry a note. Copies
+  formatted rich text (matching your normal email font/colors) directly
+  to the clipboard, ready to paste into Outlook/Gmail - no subject line,
+  greeting, or sign-off included, just the two lists.
+
 ## [0.1.6] - 2026-09-03
 - **Added**: A **Copy Review Items** button in the popup - copies every
   unrecognized/needs-review item from the last Preview (both Service

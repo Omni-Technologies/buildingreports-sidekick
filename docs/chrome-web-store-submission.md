@@ -240,7 +240,11 @@ When the dashboard's Privacy Practices tab asks what data is collected:
   processed locally as described above and in `PRIVACY.md`. A "Copy
   Review Items" button additionally copies a plain-text summary of
   unrecognized/needs-review items to your own system clipboard on
-  request — nothing is stored or sent anywhere by that action.
+  request — nothing is stored or sent anywhere by that action. A "Copy
+  Email Lists" button similarly copies two formatted device lists
+  (Failed, and Passed/Untested-with-notes) to your own system clipboard
+  on request, from the same already-disclosed device fields — also
+  nothing stored or sent anywhere.
 
 Certify: "I do not sell or transfer user data to third parties" and "I do
 not use or transfer user data for purposes unrelated to the item's single

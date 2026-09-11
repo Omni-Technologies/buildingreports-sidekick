@@ -1,6 +1,6 @@
 # Privacy Policy — BuildingReports Sidekick
 
-**Last updated: 2026-08-24** (Repaired/Fixed action)
+**Last updated: 2026-09-11** ("Copy Email Lists" action)
 
 BuildingReports Sidekick ("this extension") is an unofficial, independent
 productivity tool for people who already have authorized login access to
@@ -88,6 +88,17 @@ scoped to the BuildingReports Device Editor page you already have open:
    system clipboard, via the browser's standard clipboard API. Nothing
    is stored or sent anywhere; it stays on your clipboard exactly like
    any other manual copy/paste until you paste it somewhere yourself.
+5. **"Copy Email Lists" (added 2026-09-09)** — a popup button, independent
+   of Preview, that reads every device currently in the report (the same
+   fields already described in item 1 — device type, Model Number,
+   Floor/Direction/Location/Description/Area-Suite, Comment/Solution/
+   Note, and the Passed checkbox; nothing new) and copies two formatted
+   lists (Failed devices, and Passed/Untested devices with notes) to your
+   own system clipboard, via the browser's standard clipboard API — as
+   both plain text and formatted rich text (so pasting into an email
+   keeps the same font/colors), never as anything else. Nothing is
+   stored or sent anywhere; it stays on your clipboard exactly like any
+   other manual copy/paste until you paste it somewhere yourself.
 
 None of this data ever leaves your machine except as part of the normal
 BuildingReports save request your own click triggers — the same request
