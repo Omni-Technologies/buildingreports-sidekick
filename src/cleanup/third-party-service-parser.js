@@ -6,14 +6,16 @@
 // since these device types are deliberately NOT in either profile's
 // supported list). Full rule reference: docs/cleanup-rules.md.
 //
-// Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood are
-// serviced by outside companies, not Passed/Failed tested - their Service
-// field is normalized to "Svc. By <Company> <M>/<YY>" (e.g. "Svc. By
-// Jefferson F&S 7/26"), abbreviating known fire-industry words to fit
-// BuildingReports' 31-character Service limit. If the service date is more
-// than a year past (using the last day of that service month), Comment/
-// Solution/Note are set to flag it for investigation - independent of
-// whether the Service text itself needs to change.
+// Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood /
+// Fire Pump Phase Reversal / Fire Pump Power / Fire Pump Running / Fire
+// Pump Trouble / Pre-Action System are serviced by outside companies, not
+// Passed/Failed tested - their Service field is normalized to "Svc. By
+// <Company> <M>/<YY>" (e.g. "Svc. By Jefferson F&S 7/26"), abbreviating
+// known fire-industry words to fit BuildingReports' 31-character Service
+// limit. If the service date is more than a year past (using the last day
+// of that service month), Comment/Solution/Note are set to flag it for
+// investigation - independent of whether the Service text itself needs to
+// change.
 import { isBlank, collapseWhitespace, normalizeDeviceTypeKey } from '../shared/text-utils.js';
 import { hasConflictingResult } from './service-parser.js';
 import { ABBREVIATION_DICTIONARY } from '../config/third-party-service-abbreviations.js';
@@ -34,6 +36,11 @@ const THIRD_PARTY_SERVICE_DEVICE_TYPES = [
   'Tamper Switch',
   'Waterflow Switch',
   'Kitchen Hood',
+  'Fire Pump Phase Reversal',
+  'Fire Pump Power',
+  'Fire Pump Running',
+  'Fire Pump Trouble',
+  'Pre-Action System',
 ];
 const THIRD_PARTY_SERVICE_DEVICE_TYPE_KEYS = new Set(
   THIRD_PARTY_SERVICE_DEVICE_TYPES.map(normalizeDeviceTypeKey)

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fake BuildingReports Device Editor (dev/fake-report)</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 0; padding: 16px 20px 60px; background: #f4f5f7; color: #1a1a1a; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #555; margin: 0 0 16px; }
+  .banner { background: #fff3cd; border: 1px solid #e6c250; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; }
+  .panel { background: #fff; border: 1px solid #d8dae0; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 14px; margin: 0 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
+  label { font-size: 12px; color: #333; display: flex; flex-direction: column; gap: 2px; }
+  input[type=number] { width: 70px; }
+  button { cursor: pointer; border: 1px solid #b8bcc4; background: #eef0f3; border-radius: 5px; padding: 5px 10px; font-size: 12px; }
+  button:hover { background: #e2e5ea; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border-bottom: 1px solid #e4e6ea; text-align: left; padding: 4px 6px; vertical-align: top; }
+  th { background: #f0f1f4; position: sticky; top: 0; }
+  tr.dirty { background: #fff8e1; }
+  tr:hover { background: #f6f9ff; }
+  .service-cell { cursor: text; min-width: 220px; }
+  .service-cell:hover { text-decoration: underline dotted; }
+  .passed-yes { color: #146c2e; font-weight: 600; }
+  .passed-no { color: #a4262c; font-weight: 600; }
+  .muted { color: #888; }
+  code { background: #eee; padding: 1px 4px; border-radius: 3px; }
+  #chaosStatus { font-size: 12px; color: #555; }
+</style>
+</head>
+<body>
+  <h1>Fake BuildingReports Device Editor</h1>
+  <p class="sub">dev/fake-report — a local stand-in for the real site's Device Editor page. See <code>docs/fake-report-testing.md</code>.</p>
+
+  <div class="banner">
+    This is fake data on your own machine, not a real report. Load the unpacked extension as usual,
+    click its toolbar icon <strong>while this tab is active</strong>, and use Preview / Apply / Undo normally —
+    no restore obligation here, just reload the page to reset.
+  </div>
+
+  <div class="panel">
+    <h2>Chaos controls — exercise write-queue.js's real pacing/backoff/pause/resume paths</h2>
+    <div class="row">
+      <label>Rate-limit next N saves
+        <input type="number" id="rateLimitN" value="0" min="0">
+      </label>
+      <label>Timeout next N saves (ambiguous, no response)
+        <input type="number" id="timeoutN" value="0" min="0">
+      </label>
+      <label>Network error next N saves
+        <input type="number" id="networkErrorN" value="0" min="0">
+      </label>
+      <button id="applyChaos">Apply</button>
+      <span id="chaosStatus"></span>
+    </div>
+    <div class="row">
+      <label>Base save delay (ms)
+        <input type="number" id="baseDelay" value="300" min="0">
+      </label>
+      <label>Jitter (ms)
+        <input type="number" id="jitter" value="150" min="0">
+      </label>
+      <button id="applyTiming">Apply</button>
+    </div>
+    <div class="row">
+      <label>Concurrent burst size
+        <input type="number" id="burstN" value="20" min="1">
+      </label>
+      <label>Rate-limit fraction (0–1)
+        <input type="number" id="burstFraction" value="0.7" min="0" max="1" step="0.1">
+      </label>
+      <button id="runBurst">Simulate concurrent burst (bypasses write-queue — sanity-checks this fake against the real dom-map §5.1 incident, not this extension's own pacing)</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Report data (<span id="recordCount">0</span> devices, <span id="dirtyCount">0</span> dirty)</h2>
+    <div class="row">
+      <button id="refreshNow">Refresh now</button>
+      <span class="muted">Auto-refreshes every 500ms. Click a Service cell to hand-edit it (prompt), click Passed to toggle — same idea as the live-testing workflow's hand-edit step, just with no real report to restore afterward.</span>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Scan#</th><th>Device Type</th><th>Service</th><th>Passed</th><th>Location</th><th>Note/Comment/Solution</th><th>Dirty</th></tr>
+      </thead>
+      <tbody id="recordRows"></tbody>
+    </table>
+  </div>
+
+  <script src="fixtures.js"></script>
+  <script src="fake-ext.js"></script>
+  <script>
+    (function () {
+      const chaos = window.__fakeReportChaos;
+      const store = window.__fakeReportStore;
+
+      document.getElementById('applyChaos').addEventListener('click', function () {
+        chaos.rateLimitNext = Number(document.getElementById('rateLimitN').value) || 0;
+        chaos.timeoutNext = Number(document.getElementById('timeoutN').value) || 0;
+        chaos.networkErrorNext = Number(document.getElementById('networkErrorN').value) || 0;
+        updateChaosStatus();
+      });
+      document.getElementById('applyTiming').addEventListener('click', function () {
+        chaos.baseDelayMs = Number(document.getElementById('baseDelay').value) || 0;
+        chaos.jitterMs = Number(document.getElementById('jitter').value) || 0;
+      });
+      document.getElementById('runBurst').addEventListener('click', function () {
+        const n = Number(document.getElementById('burstN').value) || 0;
+        const frac = Number(document.getElementById('burstFraction').value) || 0;
+        const count = window.__fakeReportSimulateConcurrentBurst(n, frac);
+        alert('Fired a concurrent burst of ' + count + ' simulated deviceWrite requests (~' + Math.round(frac * 100) + '% rate-limited). Watch the Dirty column clear as responses land.');
+      });
+      document.getElementById('refreshNow').addEventListener('click', render);
+
+      function updateChaosStatus() {
+        document.getElementById('chaosStatus').textContent =
+          'pending: ' + chaos.rateLimitNext + ' rate-limit, ' + chaos.timeoutNext + ' timeout, ' + chaos.networkErrorNext + ' network-error';
+      }
+
+      function editService(rec) {
+        const current = rec.get('service');
+        const next = window.prompt('Service value for scan# ' + rec.get('scannumber') + ':', current);
+        if (next === null || next === current) return;
+        rec.set({ service: next });
+        render();
+      }
+      function togglePassed(rec) {
+        rec.set({ passed: !rec.get('passed') });
+        render();
+      }
+
+      function render() {
+        const rows = [];
+        let dirtyCount = 0;
+        store.each(function (rec) {
+          if (rec.isDirty()) dirtyCount += 1;
+        });
+        document.getElementById('recordCount').textContent = store.getCount();
+        document.getElementById('dirtyCount').textContent = dirtyCount;
+        updateChaosStatus();
+
+        const tbody = document.getElementById('recordRows');
+        tbody.innerHTML = '';
+        store.each(function (rec) {
+          const tr = document.createElement('tr');
+          if (rec.isDirty()) tr.className = 'dirty';
+
+          const tdScan = document.createElement('td');
+          tdScan.textContent = rec.get('scannumber');
+          tr.appendChild(tdScan);
+
+          const tdType = document.createElement('td');
+          tdType.textContent = rec.get('devicetype');
+          tr.appendChild(tdType);
+
+          const tdService = document.createElement('td');
+          tdService.className = 'service-cell';
+          tdService.textContent = rec.get('service') || '(blank)';
+          tdService.title = 'Click to edit';
+          tdService.addEventListener('click', function () { editService(rec); });
+          tr.appendChild(tdService);
+
+          const tdPassed = document.createElement('td');
+          tdPassed.textContent = rec.get('passed') ? 'Passed' : 'Failed';
+          tdPassed.className = rec.get('passed') ? 'passed-yes' : 'passed-no';
+          tdPassed.style.cursor = 'pointer';
+          tdPassed.title = 'Click to toggle';
+          tdPassed.addEventListener('click', function () { togglePassed(rec); });
+          tr.appendChild(tdPassed);
+
+          const tdLoc = document.createElement('td');
+          tdLoc.textContent = rec.get('location') || '';
+          tr.appendChild(tdLoc);
+
+          const tdNotes = document.createElement('td');
+          tdNotes.className = 'muted';
+          tdNotes.textContent = [rec.get('note'), rec.get('comment'), rec.get('solution')].filter(Boolean).join(' | ');
+          tr.appendChild(tdNotes);
+
+          const tdDirty = document.createElement('td');
+          tdDirty.textContent = rec.isDirty() ? 'dirty' : '';
+          tr.appendChild(tdDirty);
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      render();
+      setInterval(render, 500);
+    })();
+  </script>
+</body>
+</html>

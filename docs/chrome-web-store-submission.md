@@ -64,9 +64,11 @@ WHAT IT DOES
    Detector's existing Visual-only Service value is preserved as a
    deliberate restorable/non-restorable signal, and BuildingReports' own
    "Restorable" checkbox for that device is kept in sync. Air Pressure
-   Switch/Tamper Switch/Waterflow Switch/Kitchen Hood devices (serviced by
-   outside companies, not Passed/Failed tested) are normalized to "Svc. By
-   <Company> <Date>", abbreviating known industry words to fit
+   Switch/Tamper Switch/Waterflow Switch/Kitchen Hood/Fire Pump Phase
+   Reversal/Fire Pump Power/Fire Pump Running/Fire Pump Trouble/Pre-Action
+   System devices (serviced by outside companies, not Passed/Failed
+   tested) are normalized to "Svc. By <Company> <Date>", abbreviating
+   known industry words to fit
    BuildingReports' character limit, and flag Comment/Solution/Note for
    review when the service date is more than a year past. Anything blank,
    ambiguous, unsupported, or already correct is left untouched.

@@ -65,12 +65,13 @@ export function classifyRecord(record, profile) {
   const commsResult = classifyCommsRecord(record);
   if (commsResult) return commsResult;
 
-  // Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood
-  // are serviced by outside companies ("Svc. By <Company> <M>/<YY>"), not
-  // Passed/Failed tested, and aren't in either profile's supported device
-  // list - handled entirely by third-party-service-parser.js instead,
-  // identically under both profiles (it doesn't take `profile` either).
-  // See docs/cleanup-rules.md.
+  // Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood /
+  // Fire Pump Phase Reversal / Fire Pump Power / Fire Pump Running / Fire
+  // Pump Trouble / Pre-Action System are serviced by outside companies
+  // ("Svc. By <Company> <M>/<YY>"), not Passed/Failed tested, and aren't in
+  // either profile's supported device list - handled entirely by
+  // third-party-service-parser.js instead, identically under both profiles
+  // (it doesn't take `profile` either). See docs/cleanup-rules.md.
   const thirdPartyResult = classifyThirdPartyServiceRecord(record);
   if (thirdPartyResult) return thirdPartyResult;
 

@@ -18,7 +18,15 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
-- (add notes here before running a release)
+- **Added**: Third-Party Serviced Devices (Service Cleanup's "Svc. By
+  <Company> <M>/<YY>" rule) now also covers Fire Pump Phase Reversal, Fire
+  Pump Power, Fire Pump Running, Fire Pump Trouble, and Pre-Action System
+  - the same rule already applied to Air Pressure Switch, Tamper Switch,
+  Waterflow Switch, and Kitchen Hood.
+- **Added**: The bare "Tested" placeholder rule (Passed checked, no real
+  result text) now also recognizes "Tested/Cleaned" and "Cleaned/Tested"
+  (any spacing around the slash, either order) - normalizes to the
+  profile's canonical phrase exactly like the bare "Tested" case.
 
 ## [0.1.7] - 2026-09-11
 - **Added**: A **Copy Email Lists** button in the popup - an independent,

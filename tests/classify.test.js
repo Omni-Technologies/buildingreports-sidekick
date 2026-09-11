@@ -340,6 +340,35 @@ test('a bare "Tested" placeholder with Passed checked normalizes to the profile\
   assert.equal(semiAnnualVFResult.after, 'Visual & Functional, Passed');
 });
 
+test('a "Tested/Cleaned" (and word-order/spacing variations) placeholder with Passed checked normalizes to the profile\'s canonical phrase', () => {
+  const variations = [
+    'Tested/Cleaned',
+    'tested/cleaned',
+    'Cleaned/Tested',
+    'cleaned/tested',
+    'Tested / Cleaned',
+    'Tested/ Cleaned',
+    'Tested /Cleaned',
+  ];
+  for (const service of variations) {
+    const r = classifyRecord(
+      makeRecord({ devicetype: 'Smoke Detector', service, passed: true }),
+      annualProfile
+    );
+    assert.equal(r.bucket, Bucket.SAFE_CHANGE, `expected safeChange for "${service}"`);
+    assert.equal(r.after, 'Visual & Functional, Passed', `expected canonical result for "${service}"`);
+  }
+});
+
+test('a "Tested/Cleaned" placeholder with Passed UNCHECKED is never guessed at as Failed', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Smoke Detector', service: 'Tested/Cleaned', passed: false }),
+    annualProfile
+  );
+  assert.equal(r.bucket, Bucket.UNSUPPORTED_FIELD);
+  assert.equal(r.after, null);
+});
+
 test('a bare "Tested" placeholder with Passed UNCHECKED is never guessed at as Failed', () => {
   const r = classifyRecord(
     makeRecord({ devicetype: 'Smoke Detector', service: 'Tested', passed: false }),

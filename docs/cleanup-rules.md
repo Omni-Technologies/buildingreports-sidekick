@@ -39,10 +39,12 @@ is left completely alone, regardless of what its Service field says.
 Communicator, Communication Line, and Monitoring were real-world examples
 of this until their own rules were added - see "Communicator /
 Communication Line / Monitoring" below; Air Pressure Switch, Tamper
-Switch, Waterflow Switch, and Kitchen Hood likewise until "Third-Party
-Serviced Devices" below - none of these seven are on this list (they're
-intercepted earlier in `classify.js`, before this check ever runs), but
-none of them are unsupported/untouched anymore either.
+Switch, Waterflow Switch, Kitchen Hood, Fire Pump Phase Reversal, Fire
+Pump Power, Fire Pump Running, Fire Pump Trouble, and Pre-Action System
+likewise until "Third-Party Serviced Devices" below - none of these
+twelve are on this list (they're intercepted earlier in `classify.js`,
+before this check ever runs), but none of them are unsupported/untouched
+anymore either.
 
 ## Result parsing (`src/cleanup/service-parser.js`)
 
@@ -66,20 +68,27 @@ matches an optional trailing `ly` right after `visual`. This applies
 identically to every supported device type and both profiles (it's in the
 shared parsing regex, not profile-specific).
 
-**Bare "Tested" placeholder (added 2026-08-31):** a technician sometimes
-enters just `Tested` in Service instead of a real result, relying on the
-Passed checkbox alone. Recognized **only when Passed is checked**
-(`parseGenericTestedPlaceholder` in `service-parser.js`) and treated as a
-normal parsed Passed result with no suffix, then run through the same
-prefix-selection logic as any other record - so it becomes `Visual &
-Functional, Passed`/`Visual, Passed`/etc. exactly as the device type and
-profile dictate. **Deliberately not extended to a Failed guess** - a
-`Tested` value with Passed unchecked has no text explaining why, so it's
-left `unsupportedField` for a human to review, same conservative
-"never guess a failure reason" convention used by Monitoring's failing
-rule below. A Heat Detector with this placeholder gets the profile's
-ordinary phrase (not the Annual Visual-only-preserved signal) since a bare
-`Tested` carries no restorable/non-restorable information at all.
+**Bare "Tested" placeholder (added 2026-08-31; extended 2026-09-11 to
+"Tested/Cleaned"):** a technician sometimes enters just `Tested` - or,
+real-world example, `Tested/Cleaned`/`Cleaned/Tested` for a device that was
+also wiped down during the visit - in Service instead of a real result,
+relying on the Passed checkbox alone. Recognized **only when Passed is
+checked** (`parseGenericTestedPlaceholder` in `service-parser.js`) and
+treated as a normal parsed Passed result with no suffix, then run through
+the same prefix-selection logic as any other record - so it becomes
+`Visual & Functional, Passed`/`Visual, Passed`/etc. exactly as the device
+type and profile dictate. `Tested/Cleaned` is tolerant of word order
+(`Cleaned/Tested` too) and any whitespace around the slash (`Tested /
+Cleaned`, `Tested/ Cleaned`), case-insensitive like the bare form - but a
+bare `Cleaned` alone (no `Tested`) is **not** recognized, since no
+real-world example of that shorthand has been seen (only ever paired with
+`Tested`, or `Tested` standing alone). **Deliberately not extended to a
+Failed guess** - a `Tested`/`Tested/Cleaned` value with Passed unchecked has
+no text explaining why, so it's left `unsupportedField` for a human to
+review, same conservative "never guess a failure reason" convention used by
+Monitoring's failing rule below. A Heat Detector with this placeholder gets
+the profile's ordinary phrase (not the Annual Visual-only-preserved signal)
+since it carries no restorable/non-restorable information at all.
 
 A trailing note is kept, trimmed of leading punctuation, joined with
 ` - `, and only its first letter is capitalized (never full title-casing,
@@ -106,7 +115,7 @@ a clear leading phrase). Anything else that doesn't parse as a result and
 isn't blank falls into `unsupportedField` (e.g. real values found in
 testing: `Bar Coded`, `Yes, 11:02 AM`) - preserved, listed for review,
 never guessed at. `Svc. By Hooper 2/25`-style values were also real-world
-`unsupportedField` examples until 2026-08-06 - for the four "Third-Party
+`unsupportedField` examples until 2026-08-06 - for the "Third-Party
 Serviced Devices" listed below, that exact shape is now a **supported**
 canonical value instead; for every other (still-unsupported) device type
 it remains `unsupportedField`.
@@ -319,12 +328,15 @@ restored to their original values.
 
 ## Third-Party Serviced Devices (`src/cleanup/third-party-service-parser.js`)
 
-**Added 2026-08-06.** Air Pressure Switch, Tamper Switch, Waterflow
-Switch, and Kitchen Hood are serviced by outside companies, not
-Passed/Failed tested - their own fixed Service-field shape, completely
-unlike "Visual [& Functional], Passed/Failed", so - same as Communicator/
-Communication Line/Monitoring above - they're intercepted in `classify.js`
-**before** `isSupportedDeviceType` and handled entirely by
+**Added 2026-08-06; extended 2026-09-11** to cover Fire Pump Phase
+Reversal, Fire Pump Power, Fire Pump Running, Fire Pump Trouble, and
+Pre-Action System. Air Pressure Switch, Tamper Switch, Waterflow Switch,
+Kitchen Hood, and the five Fire Pump/Pre-Action device types above are
+serviced by outside companies, not Passed/Failed tested - their own fixed
+Service-field shape, completely unlike "Visual [& Functional],
+Passed/Failed", so - same as Communicator/Communication Line/Monitoring
+above - they're intercepted in `classify.js` **before**
+`isSupportedDeviceType` and handled entirely by
 `third-party-service-parser.js` instead. Applies **identically under both
 Annual and Semi-Annual** (the module doesn't take a `profile` argument at
 all).

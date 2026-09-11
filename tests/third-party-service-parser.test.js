@@ -13,8 +13,18 @@ function makeThirdPartyRecord(overrides = {}) {
 
 // --- Device type recognition ---
 
-test('recognizes all four third-party device types, tolerant of case/whitespace', () => {
-  const types = ['Air Pressure Switch', 'tamper switch', 'Waterflow  Switch', 'KITCHEN HOOD'];
+test('recognizes all nine third-party device types, tolerant of case/whitespace', () => {
+  const types = [
+    'Air Pressure Switch',
+    'tamper switch',
+    'Waterflow  Switch',
+    'KITCHEN HOOD',
+    'Fire Pump Phase Reversal',
+    'fire pump power',
+    'Fire  Pump Running',
+    'FIRE PUMP TROUBLE',
+    'pre-action system',
+  ];
   for (const devicetype of types) {
     const r = classifyThirdPartyServiceRecord(makeRecord({ devicetype, service: 'Hooper 4/26' }));
     assert.notEqual(r, null, `expected a result for "${devicetype}"`);

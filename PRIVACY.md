@@ -47,10 +47,12 @@ scoped to the BuildingReports Device Editor page you already have open:
    device-attribute field each (Communicator's Restore Time, Monitoring's
    Confirmed Time) plus Monitoring's Comment/Solution fields; for an
    Annual-profile Heat Detector, one additional device-attribute checkbox
-   field (Restorable); and, for Air Pressure Switch/Tamper Switch/
-   Waterflow Switch/Kitchen Hood ("third-party serviced" devices), the
-   Comment/Solution/Note fields when a service date is more than a year
-   past — all the same kind of field BuildingReports itself already
+   field (Restorable); and, for Air Pressure Switch/Tamper
+   Switch/Waterflow Switch/Kitchen Hood/Fire Pump Phase Reversal/Fire Pump
+   Power/Fire Pump Running/Fire Pump Trouble/Pre-Action System
+   ("third-party serviced" devices), the Comment/Solution/Note fields when
+   a service date is more than a year past — all the same kind of field
+   BuildingReports itself already
    exposes for that device type in its own Device Editor, never a new or
    hidden field. Battery Cleanup also reads Floor, Direction, Location,
    Description, and Area/Suite solely to match Left/Right battery pairs,

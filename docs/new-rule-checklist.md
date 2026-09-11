@@ -38,10 +38,16 @@ causes the kind of mess `docs/buildingreports-dom-map.md` §5.1 describes.
    systems** — never write a new bulk-save path, never call an adapter
    save function outside `write-queue.js`'s `runQueue`. See `CLAUDE.md`'s
    write-queue section.
-10. **Test with a small controlled set first** on the real, live report
-    (a handful of hand-picked devices) before anything larger — see the
-    rate-limit incident in `docs/buildingreports-dom-map.md` §5.1 for why
-    this matters. Increase gradually, only after each stage is clean.
+10. **Test against `dev/fake-report/` first** (`npm run fake-report` — see
+    `docs/fake-report-testing.md`), then do minimal live-report testing
+    with a small controlled set on the real, live report (a handful of
+    hand-picked devices) before anything larger — see the rate-limit
+    incident in `docs/buildingreports-dom-map.md` §5.1 for why this
+    matters. Increase gradually, only after each stage is clean. Live
+    testing is reserved for genuinely new adapter-surface work (a new
+    field mapping, a new kind of interaction) or an occasional drift
+    check — an ordinary business-logic rule change is usually sufficiently
+    confirmed by the fake-report pass plus `npm test`.
     **Before clicking Undo, check what's actually in storage first** — see
     `docs/architecture.md`'s Undo section for a real incident where a
     prior session's un-cleared Undo history got silently merged with a new
@@ -73,8 +79,11 @@ finished" — the identical checklist also lives in `CLAUDE.md`. Don't skip
 any of these before calling a feature complete:
 
 1. Run the complete automated test suite (`npm test`).
-2. Test Preview before Apply.
-3. Perform only the minimum necessary live BuildingReports testing.
+2. Test Preview before Apply — against `dev/fake-report/` first for an
+   ordinary business-logic rule.
+3. Perform only the minimum necessary live BuildingReports testing —
+   reserved for genuinely new adapter-surface work or an occasional drift
+   check.
 4. Verify Apply, save, and persistence.
 5. Test Undo whenever fields were actually changed.
 6. Restore deliberate test modifications on the live report when

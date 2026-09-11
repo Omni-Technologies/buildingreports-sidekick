@@ -33,6 +33,14 @@ Before touching any code, every session:
 7. Run `git status` and inspect it before editing anything — know what's
    already staged/modified/untracked before you add to it.
 
+For an ordinary business-logic rule change, prefer testing against
+`dev/fake-report/` (`npm run fake-report`) over connecting to a real
+report — no MCP, no restore obligation, and it exercises the real
+adapter/write-queue code path, not just synthetic unit-test fixtures. See
+`docs/fake-report-testing.md`. Reserve an actual live-report MCP session
+for genuinely new adapter-surface work (a new field mapping, a new kind of
+interaction) or an occasional drift check.
+
 ## What this is
 
 A local, unpacked Chrome extension (Manifest V3, no build step) that adds
@@ -383,10 +391,12 @@ After every successfully implemented feature or cleanup rule, before
 considering it finished:
 
 1. Run the complete automated test suite (`npm test`).
-2. Test Preview before Apply.
+2. Test Preview before Apply — against `dev/fake-report/` first for an
+   ordinary business-logic rule (see `docs/fake-report-testing.md`).
 3. Perform only the minimum necessary live BuildingReports testing (a
    small, hand-picked set of real devices — see
-   `docs/new-rule-checklist.md` step 10).
+   `docs/new-rule-checklist.md` step 10) — reserved for genuinely new
+   adapter-surface work or an occasional drift check, not every rule.
 4. Verify Apply, save, and persistence against the real report.
 5. Test Undo whenever fields were actually changed — but check
    `chrome.storage.local`'s `brSidekick.undo.<inspectionId>`/

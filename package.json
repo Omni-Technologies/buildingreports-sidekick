@@ -6,6 +6,7 @@
   "description": "Unofficial local Chrome extension with cleanup/editing tools for BuildingReports inspection reports. Not affiliated with or endorsed by BuildingReports.",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "fake-report": "node dev/fake-report/server.js",
     "release:check": "node scripts/release.js check",
     "release:dry-run": "node scripts/release.js dry-run",
     "release:patch": "node scripts/release.js release patch",

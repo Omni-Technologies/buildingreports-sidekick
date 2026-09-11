@@ -47,22 +47,34 @@ export function buildCanonicalService(prefix, parsed) {
   return parsed.suffix ? `${base} - ${parsed.suffix}` : base;
 }
 
-// Real-world example: a technician enters a bare "Tested" in Service
-// instead of a real result, relying entirely on the Passed checkbox for the
-// actual outcome. Recognized ONLY when Passed is checked (`passed ===
-// true`) - deliberately not extended to a Failed guess, since nothing in
-// the raw text says why it failed (mirrors Monitoring's "Passed unchecked
-// with no Note -> needsReview, never guessed" convention). Returns a
-// parsed-result-shaped object usable with buildCanonicalService, or null.
+// Real-world example: a technician enters a bare "Tested" (or, added
+// 2026-09-11, "Tested/Cleaned"/"Cleaned/Tested" - a real-world combined
+// placeholder covering devices that get wiped down as part of the same
+// visit) in Service instead of a real result, relying entirely on the
+// Passed checkbox for the actual outcome. Recognized ONLY when Passed is
+// checked (`passed === true`) - deliberately not extended to a Failed
+// guess, since nothing in the raw text says why it failed (mirrors
+// Monitoring's "Passed unchecked with no Note -> needsReview, never
+// guessed" convention). Returns a parsed-result-shaped object usable with
+// buildCanonicalService, or null.
 //
 // `hasFunctional` is set to `true` (not a reflection of any real "&
 // Functional" text - there isn't any) purely so classify.js's Annual Heat
 // Detector Visual-only-preserved check (which requires `hasFunctional ===
 // false` to fire) never mistakes this placeholder for that deliberate
-// restorable/non-restorable signal - a bare "Tested" carries no such
-// signal, so a Heat Detector with this text should get the profile's
-// ordinary standard/visualFunctional phrase, not be preserved Visual-only.
-const GENERIC_TESTED_PATTERN = /^\s*tested\s*$/i;
+// restorable/non-restorable signal - a bare "Tested"/"Tested/Cleaned"
+// carries no such signal, so a Heat Detector with this text should get the
+// profile's ordinary standard/visualFunctional phrase, not be preserved
+// Visual-only.
+//
+// Tolerates either word order ("Tested/Cleaned" or "Cleaned/Tested") and
+// any amount of whitespace around the slash (e.g. "Tested/ Cleaned",
+// "Tested / Cleaned") - real-world technician entries observed with both.
+// Deliberately does NOT match a bare "Cleaned" alone (no real-world example
+// of that shorthand seen yet - only ever paired with "Tested" or standing
+// alone as "Tested").
+const GENERIC_TESTED_PATTERN =
+  /^\s*(?:tested\s*\/\s*cleaned|cleaned\s*\/\s*tested|tested)\s*$/i;
 export function parseGenericTestedPlaceholder(rawValue, passed) {
   if (passed !== true) return null;
   if (!GENERIC_TESTED_PATTERN.test(rawValue)) return null;

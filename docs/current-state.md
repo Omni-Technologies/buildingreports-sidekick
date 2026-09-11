@@ -20,7 +20,9 @@ changes — it's meant to save a future session from re-deriving all of this.
   BuildingReports' own "Restorable" checkbox; and Third-Party Serviced
   Devices (`src/cleanup/third-party-service-parser.js` +
   `src/config/third-party-service-abbreviations.js`) — Air Pressure
-  Switch/Tamper Switch/Waterflow Switch/Kitchen Hood normalized to `Svc.
+  Switch/Tamper Switch/Waterflow Switch/Kitchen Hood (plus, added
+  2026-09-11: Fire Pump Phase Reversal/Fire Pump Power/Fire Pump
+  Running/Fire Pump Trouble/Pre-Action System) normalized to `Svc.
   By <Company> <M>/<YY>`, applied identically under both profiles, with a
   popup manual-fix UI (`manualServiceFix` message) for the rare case an
   abbreviated company name still doesn't fit BuildingReports' 31-character
@@ -39,7 +41,10 @@ changes — it's meant to save a future session from re-deriving all of this.
   handle a full date+time-with-seconds Service value (e.g. "08/24/2026
   10:48:51 AM" → "Yes, 10:48 AM", Confirmed Time synced) - no code change
   was needed there; it was a stale/not-yet-reloaded extension in an earlier
-  session, not a real bug.
+  session, not a real bug. **Added 2026-09-11:** the bare "Tested"
+  placeholder rule now also recognizes `Tested/Cleaned`/`Cleaned/Tested`
+  (either word order, any whitespace around the slash, case-insensitive),
+  still only when Passed is checked - see `docs/cleanup-rules.md`.
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
   Undo — **shares the same three popup buttons as Service Cleanup since
   2026-08-24** (no longer separate buttons; `popup.js` triggers both
@@ -122,7 +127,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**263 tests, 0 failures** across `tests/*.test.js`
+**265 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `email-summary.test.js`, `engine.test.js`,
 `repair-battery.test.js`, `repair-engine.test.js`, `repair-generic.test.js`,
