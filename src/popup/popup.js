@@ -788,7 +788,12 @@ copyReviewBtn.addEventListener('click', async () => {
 // bullets - navigator.clipboard.writeText alone (used by Copy Review
 // Items) would lose both. Needs no new manifest permission - same
 // user-gesture-gated Clipboard API as the plain-text write already used.
-const EMAIL_FAILED_COLOR = '#c00000';
+// Matches the user's normal email font (Aptos 11 Bold, confirmed
+// 2026-09-11) - applied inline on every element (not just an outer
+// wrapper) since some paste targets don't reliably inherit style from a
+// parent when Outlook/Gmail sanitize pasted HTML.
+const EMAIL_FAILED_COLOR = '#c82613';
+const EMAIL_FONT_STYLE = 'font-family:Aptos,Calibri,Arial,sans-serif;font-size:11pt;font-weight:bold;';
 
 function formatGroupLine(group) {
   const modelPart = group.modelNumber ? `(${group.modelNumber})` : '';
@@ -798,15 +803,15 @@ function formatGroupLine(group) {
 function buildEmailHtml(failed, passedWithNotes) {
   const section = (heading, groups, color) => {
     if (groups.length === 0) return '';
-    const colorAttr = color ? ` style="color:${color};"` : '';
+    const styleAttr = ` style="${EMAIL_FONT_STYLE}${color ? `color:${color};` : ''}"`;
     const items = groups
       .map(
         (g) =>
-          `<li${colorAttr}>${escapeHtml(formatGroupLine(g))}` +
-          `<ul><li${colorAttr}>${escapeHtml(g.reasonText)}</li></ul></li>`
+          `<li${styleAttr}>${escapeHtml(formatGroupLine(g))}` +
+          `<ul><li${styleAttr}>${escapeHtml(g.reasonText)}</li></ul></li>`
       )
       .join('');
-    return `<p${colorAttr}><strong>${escapeHtml(heading)}</strong></p><ul>${items}</ul>`;
+    return `<p${styleAttr}><strong>${escapeHtml(heading)}</strong></p><ul>${items}</ul>`;
   };
   return (
     section('Devices Failed Listed:', failed, EMAIL_FAILED_COLOR) +

@@ -113,10 +113,17 @@ manifest permission - it's the same user-gesture-gated Async Clipboard API
 `writeText` already uses.
 
 No subject line, greeting, or sign-off is generated - explicitly not
-wanted (the user handles those). Two bold headers are generated above each
+wanted (the user handles those). Two headers are generated above each
 list (`Devices Failed Listed:` in red, `Devices Passed/Untested With Notes
 Listed:` in black) matching the one confirmed from a real example; a
 section with zero groups is omitted entirely rather than printed empty.
+
+Every generated element (headers, bullets, sub-bullets) carries the user's
+normal email font inline - **Aptos, 11pt, Bold** (`EMAIL_FONT_STYLE` in
+`popup.js`, confirmed 2026-09-11) - plus `color:#c82613` (also confirmed)
+on the Failed section only. Applied per-element rather than on one outer
+wrapper, since Outlook/Gmail's paste sanitization doesn't reliably
+preserve inherited styling from a parent.
 
 ## What's NOT yet handled / open questions
 
@@ -129,9 +136,6 @@ section with zero groups is omitted entirely rather than printed empty.
 - Sort order within each list is report order (whatever order
   `#devicelistGrid`'s store already holds records in) - no floor/location-
   based sorting has been requested or built.
-- The exact red hex color (`EMAIL_FAILED_COLOR` in `popup.js`, currently
-  `#c00000`) was not sampled from the real screenshot - adjust it there if
-  it doesn't match the user's actual template closely enough.
 - Not yet live-tested against a real report - see
   `docs/live-testing-workflow.md` before doing so. Being entirely
   read-only (no writes, no Apply/Undo, no write queue involvement), the
