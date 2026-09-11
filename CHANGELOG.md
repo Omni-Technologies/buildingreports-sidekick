@@ -18,6 +18,9 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
+- (add notes here before running a release)
+
+## [0.1.8] - 2026-09-11
 - **Added**: Third-Party Serviced Devices (Service Cleanup's "Svc. By
   <Company> <M>/<YY>" rule) now also covers Fire Pump Phase Reversal, Fire
   Pump Power, Fire Pump Running, Fire Pump Trouble, and Pre-Action System
