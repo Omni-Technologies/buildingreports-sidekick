@@ -24,12 +24,12 @@ explicitly says so.
 | Field | Value |
 |---|---|
 | Latest locally generated version | 0.1.9 (`releases/buildingreports-sidekick-v0.1.9.zip`) — generated 2026-09-25 |
-| Latest version submitted for review | **0.1.6** — user confirmed submitted 2026-09-03, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.4 (submitted 2026-08-06) — 0.1.5 was generated but never confirmed submitted, so it was skipped. |
+| Latest version submitted for review | **0.1.9** — user confirmed submitted 2026-09-25, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.6 (submitted 2026-09-03) — 0.1.7 and 0.1.8 were generated but never confirmed submitted, so they were skipped. |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last submitted release (0.1.6)
 
-- **0.1.9** (generated 2026-09-25, not yet confirmed submitted): Service
+- **0.1.9** (generated 2026-09-25, **submitted 2026-09-25**, pending review): Service
   Cleanup accepts the "Passd"/"Faild" typos; marker-less times on
   Monitoring/Communicator/Communication Line are read as daytime (5-11
   AM, 12-4 PM); Clean Agent System added to Third-Party Serviced Devices.
