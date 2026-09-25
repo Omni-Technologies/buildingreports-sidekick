@@ -20,6 +20,19 @@ When writing an entry, say what changed from the user's point of view:
 ## [Unreleased]
 - (add notes here before running a release)
 
+## [0.1.9] - 2026-09-25
+- **Fixed**: Service Cleanup now recognizes the typos "Passd"/"Faild"
+  (e.g. "Visual,Passd" -> "Visual, Passed") on both Annual and
+  Semi-Annual. A value mentioning both a pass and a fail is still left
+  for review.
+- **Fixed**: Monitoring, Communicator, and Communication Line times with
+  no AM/PM (e.g. "9/11/26 10:03:46" or "10:03") are now read as daytime
+  inspection times - 5-11 is AM, 12 and 1-4 are PM - instead of being
+  flagged for review (e.g. Monitoring -> "Yes, 10:03 AM").
+- **Added**: Clean Agent System now gets the same "Svc. By <Company>
+  <M>/<YY>" Third-Party Serviced Devices rule as Tamper Switch,
+  Waterflow Switch, Pre-Action System, etc.
+
 ## [0.1.8] - 2026-09-11
 - **Added**: Third-Party Serviced Devices (Service Cleanup's "Svc. By
   <Company> <M>/<YY>" rule) now also covers Fire Pump Phase Reversal, Fire
