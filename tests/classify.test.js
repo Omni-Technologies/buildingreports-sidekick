@@ -317,6 +317,21 @@ test('"Visually" typo under Semi-Annual still respects the Visual-only device gr
   assert.equal(r.after, 'Visual, Passed');
 });
 
+test('the real-world "Passd"/"Faild" typos normalize to Passed/Failed (Semi-Annual "Visual,Passd")', () => {
+  const r = classifyRecord(makeRecord({ devicetype: 'Smoke Detector', service: 'Visual,Passd' }), semiAnnualProfile);
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Visual, Passed');
+
+  const f = classifyRecord(makeRecord({ devicetype: 'Smoke Detector', service: 'Visual,Faild - dirty' }), semiAnnualProfile);
+  assert.equal(f.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(f.after, 'Visual, Failed - Dirty');
+});
+
+test('"Passd" alongside "Failed" is still a conflict, never normalized', () => {
+  const r = classifyRecord(makeRecord({ devicetype: 'Smoke Detector', service: 'Visual, Passd - Failed' }), semiAnnualProfile);
+  assert.equal(r.bucket, Bucket.AMBIGUOUS_CONFLICT);
+});
+
 test('a bare "Tested" placeholder with Passed checked normalizes to the profile\'s canonical phrase', () => {
   const annualResult = classifyRecord(
     makeRecord({ devicetype: 'Smoke Detector', service: 'Tested', passed: true }),

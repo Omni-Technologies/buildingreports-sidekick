@@ -500,7 +500,8 @@ async function handleUndoStatus(tabId) {
 
 // Manual fix for a third-party serviced device (Air Pressure Switch/Tamper
 // Switch/Waterflow Switch/Kitchen Hood/Fire Pump Phase Reversal/Fire Pump
-// Power/Fire Pump Running/Fire Pump Trouble/Pre-Action System) whose
+// Power/Fire Pump Running/Fire Pump Trouble/Pre-Action System/Clean Agent
+// System) whose
 // abbreviated company name still didn't fit BuildingReports' 31-character
 // Service limit - see
 // third-party-service-parser.js's `suggestedFix` and docs/cleanup-rules.md.

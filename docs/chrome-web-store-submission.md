@@ -66,7 +66,7 @@ WHAT IT DOES
    "Restorable" checkbox for that device is kept in sync. Air Pressure
    Switch/Tamper Switch/Waterflow Switch/Kitchen Hood/Fire Pump Phase
    Reversal/Fire Pump Power/Fire Pump Running/Fire Pump Trouble/Pre-Action
-   System devices (serviced by outside companies, not Passed/Failed
+   System/Clean Agent System devices (serviced by outside companies, not Passed/Failed
    tested) are normalized to "Svc. By <Company> <Date>", abbreviating
    known industry words to fit
    BuildingReports' character limit, and flag Comment/Solution/Note for

@@ -67,7 +67,8 @@ export function classifyRecord(record, profile) {
 
   // Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood /
   // Fire Pump Phase Reversal / Fire Pump Power / Fire Pump Running / Fire
-  // Pump Trouble / Pre-Action System are serviced by outside companies
+  // Pump Trouble / Pre-Action System / Clean Agent System are serviced by
+  // outside companies
   // ("Svc. By <Company> <M>/<YY>"), not Passed/Failed tested, and aren't in
   // either profile's supported device list - handled entirely by
   // third-party-service-parser.js instead, identically under both profiles

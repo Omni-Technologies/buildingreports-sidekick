@@ -8,7 +8,8 @@
 //
 // Air Pressure Switch / Tamper Switch / Waterflow Switch / Kitchen Hood /
 // Fire Pump Phase Reversal / Fire Pump Power / Fire Pump Running / Fire
-// Pump Trouble / Pre-Action System are serviced by outside companies, not
+// Pump Trouble / Pre-Action System / Clean Agent System are serviced by
+// outside companies, not
 // Passed/Failed tested - their Service field is normalized to "Svc. By
 // <Company> <M>/<YY>" (e.g. "Svc. By Jefferson F&S 7/26"), abbreviating
 // known fire-industry words to fit BuildingReports' 31-character Service
@@ -41,6 +42,7 @@ const THIRD_PARTY_SERVICE_DEVICE_TYPES = [
   'Fire Pump Running',
   'Fire Pump Trouble',
   'Pre-Action System',
+  'Clean Agent System',
 ];
 const THIRD_PARTY_SERVICE_DEVICE_TYPE_KEYS = new Set(
   THIRD_PARTY_SERVICE_DEVICE_TYPES.map(normalizeDeviceTypeKey)

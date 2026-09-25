@@ -5,11 +5,17 @@
 // Tolerates the real-world typo "Visually" (confirmed live on a Strobe
 // record: "Visually & Functional, Passed") alongside the correct "Visual" -
 // `(?:ly)?` is non-capturing so it doesn't shift the numbered groups below.
+//
+// Also tolerates the dropped-"e" typos "Passd"/"Faild" (confirmed live on a
+// Semi-Annual report: "Visual,Passd") - group 2 captures only the stem
+// ("pass"/"fail"), mapped back to the canonical word in
+// parseVisualFunctionalResult. Deliberately narrow: that one missing letter,
+// nothing fuzzier.
 const RESULT_PATTERN =
-  /^\s*visual(?:ly)?\s*((?:&|and)\s*functional)?\s*[,]?\s*(passed|failed)\b\s*(.*)$/i;
+  /^\s*visual(?:ly)?\s*((?:&|and)\s*functional)?\s*[,]?\s*(pass|fail)e?d\b\s*(.*)$/i;
 
-const HAS_PASSED = /\bpassed\b/i;
-const HAS_FAILED = /\bfailed\b/i;
+const HAS_PASSED = /\bpasse?d\b/i;
+const HAS_FAILED = /\bfaile?d\b/i;
 
 function capitalizeFirst(str) {
   return str.length ? str.charAt(0).toUpperCase() + str.slice(1) : str;
@@ -33,7 +39,7 @@ export function parseVisualFunctionalResult(rawValue) {
   const match = RESULT_PATTERN.exec(rawValue);
   if (!match) return null;
   const hasFunctional = !!match[1];
-  const resultWord = match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase();
+  const resultWord = match[2].toLowerCase() === 'pass' ? 'Passed' : 'Failed';
   const rawSuffix = match[3] || '';
   const trimmedSuffix = rawSuffix.replace(/^[\s\-:;,]+/, '').trim();
   const suffix = trimmedSuffix ? capitalizeFirst(trimmedSuffix) : '';

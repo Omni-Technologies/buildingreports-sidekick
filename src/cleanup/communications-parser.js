@@ -61,8 +61,8 @@ function asStr(value) {
 // a technician entry can read "15:14:26 pm" (24-hour time with a redundant
 // trailing am/pm marker and seconds). A 24-hour hour outside 1-12 is
 // unambiguous regardless of whether a marker follows it, so it's converted
-// straight to 12-hour form; an ordinary 1-12 hour still requires an
-// explicit am/pm marker nearby and is never guessed, same as before.
+// straight to 12-hour form. A 1-12 hour with no marker uses the daytime
+// rule below (added 2026-09-25).
 function extractTime(text) {
   if (isBlank(text)) return null;
   const m = TIME_PATTERN.exec(String(text));
@@ -75,7 +75,13 @@ function extractTime(text) {
   if (hour >= 13) return `${hour - 12}:${String(minute).padStart(2, '0')} PM`;
 
   const ampmRaw = m[3];
-  if (!ampmRaw) return null;
+  if (!ampmRaw) {
+    // No marker (confirmed live on Monitoring: "9/11/26 10:03:46",
+    // "9/17/26 12:27:38") - read as a daytime inspection time, per the
+    // user's rule: 5-11 is AM, 12 and 1-4 are PM (inspections essentially
+    // never happen at night). Applies with or without seconds.
+    return `${hour}:${String(minute).padStart(2, '0')} ${hour >= 5 && hour <= 11 ? 'AM' : 'PM'}`;
+  }
   const ampm = ampmRaw.toUpperCase().replace(/\./g, '');
   return `${hour}:${String(minute).padStart(2, '0')} ${ampm}`;
 }

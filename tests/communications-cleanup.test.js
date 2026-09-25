@@ -290,6 +290,40 @@ test('Monitoring full date+time-with-seconds Service normalizes and syncs Confir
   assert.equal(extraField(r, 'confirmedTime').after, '10:48 AM');
 });
 
+test('Monitoring date + H:MM:SS with no am/pm marker is read as a daytime time: 5-11 AM, 12-4 PM (real-world examples)', () => {
+  const morning = classifyMonitoringRecord(
+    makeRecord({ devicetype: 'Monitoring', service: '9/11/26 10:03:46', passed: true, confirmedTime: '' })
+  );
+  assert.equal(morning.bucket, 'safeChange');
+  assert.equal(morning.after, 'Yes, 10:03 AM');
+  assert.equal(extraField(morning, 'confirmedTime').after, '10:03 AM');
+
+  const noon = classifyMonitoringRecord(
+    makeRecord({ devicetype: 'Monitoring', service: '9/17/26 12:27:38', passed: true, confirmedTime: '' })
+  );
+  assert.equal(noon.bucket, 'safeChange');
+  assert.equal(noon.after, 'Yes, 12:27 PM');
+
+  const cases = [['5:00:00', '5:00 AM'], ['11:59:59', '11:59 AM'], ['1:15:22', '1:15 PM'], ['4:45:10', '4:45 PM']];
+  for (const [service, time] of cases) {
+    const r = classifyMonitoringRecord(
+      makeRecord({ devicetype: 'Monitoring', service: `9/11/26 ${service}`, passed: true, confirmedTime: '' })
+    );
+    assert.equal(r.after, `Yes, ${time}`, service);
+  }
+});
+
+test('Monitoring bare H:MM with no seconds and no am/pm marker uses the same daytime rule', () => {
+  const am = classifyMonitoringRecord(
+    makeRecord({ devicetype: 'Monitoring', service: '9/11/26 10:03', passed: true, confirmedTime: '' })
+  );
+  assert.equal(am.after, 'Yes, 10:03 AM');
+  const pm = classifyMonitoringRecord(
+    makeRecord({ devicetype: 'Monitoring', service: '2:30', passed: true, confirmedTime: '' })
+  );
+  assert.equal(pm.after, 'Yes, 2:30 PM');
+});
+
 test('Monitoring blank Service is left untouched', () => {
   const r = classifyMonitoringRecord(makeRecord({ devicetype: 'Monitoring', service: '' }));
   assert.equal(r.bucket, 'blank');

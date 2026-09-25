@@ -40,9 +40,9 @@ Communicator, Communication Line, and Monitoring were real-world examples
 of this until their own rules were added - see "Communicator /
 Communication Line / Monitoring" below; Air Pressure Switch, Tamper
 Switch, Waterflow Switch, Kitchen Hood, Fire Pump Phase Reversal, Fire
-Pump Power, Fire Pump Running, Fire Pump Trouble, and Pre-Action System
-likewise until "Third-Party Serviced Devices" below - none of these
-twelve are on this list (they're intercepted earlier in `classify.js`,
+Pump Power, Fire Pump Running, Fire Pump Trouble, Pre-Action System, and
+Clean Agent System likewise until "Third-Party Serviced Devices" below -
+none of these thirteen are on this list (they're intercepted earlier in `classify.js`,
 before this check ever runs), but none of them are unsupported/untouched
 anymore either.
 
@@ -67,6 +67,13 @@ normalizes exactly like `Visual` - `RESULT_PATTERN` in `service-parser.js`
 matches an optional trailing `ly` right after `visual`. This applies
 identically to every supported device type and both profiles (it's in the
 shared parsing regex, not profile-specific).
+
+**Real-world typo tolerated (added 2026-09-25):** `Passd`/`Faild` (the
+dropped-"e" misspelling - confirmed live on a Semi-Annual report as
+`Visual,Passd`) normalize exactly like `Passed`/`Failed`. Conflict
+detection (`HAS_PASSED`/`HAS_FAILED`) recognizes the typo forms too, so
+`Passd` alongside `Failed` is still `ambiguousConflict`. Deliberately
+narrow - only that one missing letter, nothing fuzzier.
 
 **Bare "Tested" placeholder (added 2026-08-31; extended 2026-09-11 to
 "Tested/Cleaned"):** a technician sometimes enters just `Tested` - or,
@@ -278,8 +285,12 @@ tolerates an optional `:SS` seconds group and an hour of `00` or `13`-`23`,
 converting it to 12-hour form regardless of whether a (possibly redundant
 or mismatched) am/pm marker follows - e.g. `15:14:26 pm` and a bare `15:14`
 both normalize to `3:14 PM`, `00:05` normalizes to `12:05 AM`. An ordinary
-`1`-`12` hour still requires an explicit am/pm marker nearby and is never
-guessed, exactly as before. This applies identically to Communication
+`1`-`12` hour uses its am/pm marker when one is present. **With no marker
+at all (added 2026-09-25, confirmed live on Monitoring: `9/11/26 10:03:46`
+-> `Yes, 10:03 AM`, `9/17/26 12:27:38` -> `Yes, 12:27 PM`)** it is read as
+a daytime inspection time, with or without seconds (user's rule - night
+inspections essentially never happen): `5`-`11` is AM, `12` and `1`-`4`
+are PM. This applies identically to Communication
 Line and Monitoring below, since all three share `extractTime`.
 
 ### Communication Line
@@ -330,8 +341,9 @@ restored to their original values.
 
 **Added 2026-08-06; extended 2026-09-11** to cover Fire Pump Phase
 Reversal, Fire Pump Power, Fire Pump Running, Fire Pump Trouble, and
-Pre-Action System. Air Pressure Switch, Tamper Switch, Waterflow Switch,
-Kitchen Hood, and the five Fire Pump/Pre-Action device types above are
+Pre-Action System, **and 2026-09-25** to cover Clean Agent System. Air
+Pressure Switch, Tamper Switch, Waterflow Switch, Kitchen Hood, and the six
+Fire Pump/Pre-Action/Clean Agent device types above are
 serviced by outside companies, not Passed/Failed tested - their own fixed
 Service-field shape, completely unlike "Visual [& Functional],
 Passed/Failed", so - same as Communicator/Communication Line/Monitoring

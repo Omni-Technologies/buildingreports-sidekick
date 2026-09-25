@@ -45,6 +45,12 @@ changes — it's meant to save a future session from re-deriving all of this.
   placeholder rule now also recognizes `Tested/Cleaned`/`Cleaned/Tested`
   (either word order, any whitespace around the slash, case-insensitive),
   still only when Passed is checked - see `docs/cleanup-rules.md`.
+  **Added 2026-09-25 (real Semi-Annual report bugs):** the `Passd`/`Faild`
+  typo (e.g. `Visual,Passd`) normalizes like `Passed`/`Failed`; a
+  marker-less `H:MM`/`H:MM:SS` time in Monitoring/Communicator/Communication
+  Line Service (e.g. `9/11/26 10:03:46`) is read as a daytime time,
+  5-11 AM / 12-4 PM (`Yes, 10:03 AM`; `12:27:38` -> `12:27 PM`); and Clean Agent System joins
+  the Third-Party Serviced Devices list.
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
   Undo — **shares the same three popup buttons as Service Cleanup since
   2026-08-24** (no longer separate buttons; `popup.js` triggers both
@@ -127,7 +133,7 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**265 tests, 0 failures** across `tests/*.test.js`
+**269 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `email-summary.test.js`, `engine.test.js`,
 `repair-battery.test.js`, `repair-engine.test.js`, `repair-generic.test.js`,

@@ -13,7 +13,7 @@ function makeThirdPartyRecord(overrides = {}) {
 
 // --- Device type recognition ---
 
-test('recognizes all nine third-party device types, tolerant of case/whitespace', () => {
+test('recognizes all ten third-party device types, tolerant of case/whitespace', () => {
   const types = [
     'Air Pressure Switch',
     'tamper switch',
@@ -24,6 +24,7 @@ test('recognizes all nine third-party device types, tolerant of case/whitespace'
     'Fire  Pump Running',
     'FIRE PUMP TROUBLE',
     'pre-action system',
+    'Clean Agent System',
   ];
   for (const devicetype of types) {
     const r = classifyThirdPartyServiceRecord(makeRecord({ devicetype, service: 'Hooper 4/26' }));
