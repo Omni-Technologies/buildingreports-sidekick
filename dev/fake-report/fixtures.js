@@ -83,9 +83,16 @@
     record({ devicetype: 'Speaker', service: 'Visual & Functional, Failed - no response', passed: false, location: 'Room 102' }),
     record({ devicetype: 'Control Panel', service: 'Visually & Functional, Passed', passed: true, location: 'FACP' }), // "Visually" typo tolerance
     record({ devicetype: 'Indicating Device', service: 'Failed, retested Passed', passed: true, location: 'Panel 2' }), // ambiguousConflict
-    record({ devicetype: 'Damper Control', service: 'Not Tested', passed: false, location: 'AHU-1' }), // customPreserved
+    record({ devicetype: 'Damper Control', service: 'Tested By Others', passed: false, location: 'AHU-1' }), // customPreserved
     record({ devicetype: 'Elevator', service: '', passed: false, location: 'Elev 1' }), // blank
-    record({ devicetype: 'Fire Barrier', service: 'Bar Coded', passed: true, location: 'Stair 1' }), // unsupportedField
+    record({ devicetype: 'Fire Barrier', service: 'Svc. By Hooper 2/25', passed: true, location: 'Stair 1' }), // unsupportedField
+
+    // --- Untested device ("Not Tested"/"Barcoded" -> Bar Coded + Comment/Solution/Note) ---
+    record({ devicetype: 'Damper Control', service: 'Not Tested', passed: false, location: 'AHU-1', note: 'door locked' }), // safeChange, Door Locked note
+    record({ devicetype: 'Smoke Detector', service: 'Barcoded', passed: false, location: 'Conf Rm 2', comment: 'room occupied' }), // safeChange, Room Occupied note
+    record({ devicetype: 'Duct Detector', service: 'not tested - inside RTU-4', passed: false, location: 'Roof' }), // safeChange, RTU note
+    record({ devicetype: 'Heat Detector', service: 'Bar Code', passed: false, location: 'Elevator Shaft' }), // safeChange, elevator note
+    record({ devicetype: 'Smoke Detector', service: 'Not Tested', passed: false, location: 'Storage' }), // needsReview (no reason given)
     record({ devicetype: 'Special Recall Thingy', service: 'visual and functional, passed', passed: true }), // unsupportedDeviceType
 
     // --- Heat Detector / One Hitter ---

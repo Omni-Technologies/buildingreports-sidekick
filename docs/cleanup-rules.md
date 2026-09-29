@@ -9,9 +9,9 @@
 | `alreadyCorrect` | Already exactly the canonical string | No |
 | `ambiguousConflict` | Contains both a Passed and a Failed token | No |
 | `safeChange` | Recognized "Visual [& Functional], Passed/Failed" shape, different from canonical | **Yes** |
-| `customPreserved` | Matches a known preserve phrase (Not Tested, No Access, etc.) | No |
+| `customPreserved` | Matches a known preserve phrase (Unable To Test, No Access, etc.) | No |
 | `unsupportedField` | Non-blank, doesn't match the recognized shape or a preserve phrase | No |
-| `needsReview` | Profile disabled, or an ambiguous One Hitter reference | No |
+| `needsReview` | Profile disabled, an ambiguous One Hitter reference, or an untested device whose Note reason can't be determined | No |
 
 Only `safeChange` entries are ever written. Preview shows all buckets;
 the popup's "Review list" surfaces `ambiguousConflict`,
@@ -116,16 +116,74 @@ part of it looks parseable.
 
 ## Preserved phrases (never overwritten, no result invented)
 
-`Not Tested`, `Unable To Test`, `Tested By Others`, `No Access`, `See
-On-Site Service Records` (matched case-insensitively, as the whole value or
+`Unable To Test`, `Tested By Others`, `No Access`, `See On-Site Service
+Records` (matched case-insensitively, as the whole value or
 a clear leading phrase). Anything else that doesn't parse as a result and
 isn't blank falls into `unsupportedField` (e.g. real values found in
-testing: `Bar Coded`, `Yes, 11:02 AM`) - preserved, listed for review,
+testing: `Yes, 11:02 AM`) - preserved, listed for review,
 never guessed at. `Svc. By Hooper 2/25`-style values were also real-world
 `unsupportedField` examples until 2026-08-06 - for the "Third-Party
 Serviced Devices" listed below, that exact shape is now a **supported**
 canonical value instead; for every other (still-unsupported) device type
 it remains `unsupportedField`.
+
+`Not Tested` was on this list, and `Bar Coded` was an `unsupportedField`
+example, until 2026-09-29 - both are now handled by the Untested Devices
+rule below. (`Not Tested` is still preserved for Third-Party Serviced
+Devices.)
+
+## Untested Devices (`src/cleanup/untested-device-parser.js`)
+
+Added 2026-09-29. Applies identically under Annual and Semi-Annual to every
+supported (non-third-party) device type. Runs before the preserve-phrase
+check in `classify.js`.
+
+**Trigger:** Service is `Not Tested` / `Untested` / `Bar Coded` /
+`Barcoded` / `Bar Code` / `Barcode` (case, spacing, hyphen tolerant), as
+the whole value or its leading phrase (e.g. `Not Tested - door locked`).
+A value that also carries a Pass/Passed/Fail/Failed word does **not**
+trigger - it's left to the ordinary parse path.
+
+**Writes (safeChange):**
+
+| Field | Value |
+|---|---|
+| Service | `Bar Coded` |
+| Comment | `Special Note` |
+| Solution | `See Notes/Recommendations` |
+| Note | one of the canonical notes below, picked from context |
+| Passed | checked |
+
+Passed is always checked: an untested device is never marked Failed for
+being untested - the Note carries the reason. Only fields that actually
+differ are written; a fully canonical device is `alreadyCorrect`.
+
+**Canonical Notes** (every dash a plain hyphen `-`; an existing Note that
+matches one of these except for an en/em dash is rewritten to the
+plain-hyphen form):
+
+| Reason | Note | Keywords (whole word, case-insensitive) |
+|---|---|---|
+| Locate | `Unable To Locate Device For Functional Testing - Maintenance To Locate Device So That It Can Be Tested Or Removed From Programing` | locate, located, locating, find, found, missing |
+| Locked | `Unable To Access - Door Locked` | lock, locked |
+| Occupied | `Unable To Access - Room Occupied During Inspection` | occupied, occupant(s) |
+| RTU | `Unable To Safely Access Device For Functional Testing - Device Is Inside RTU - Will Need HVAC Technician On-Site` | RTU(s), roof top unit(s), HVAC |
+| Elevator | `Unable To Test Without An Elevator Technician Present` | see below |
+
+**Note selection order:**
+
+1. Note already equals one of the canonical notes → kept as-is.
+2. Elevator context → Elevator note (wins over any keyword). Elevator
+   context = Device Type is `Elevator`, or Direction / Location /
+   Description / Area-Suite / Service / Note / Comment contains
+   `elevator(s)`, `elev`, `elavator` (typo), or `hoistway`. Whole
+   word, so `Elevation` doesn't match; `shaft` alone and `EMR` don't
+   count.
+3. Exactly one keyword category matches across the Service text after the
+   trigger, Note, Comment and Solution (canonical Comment/Solution values
+   ignored) → that note.
+4. No category, or more than one (e.g. "locked and occupied") →
+   `needsReview`, nothing written.
 
 ## Heat Detector / One Hitter exception (`src/cleanup/one-hitter.js`)
 
@@ -234,7 +292,8 @@ Confirmed live end-to-end (Preview → Apply → verify → Undo → verify) on 
 real report for: an Annunciator Passed case (Visual & Functional group), a
 Smoke Detector Passed case (Visual-only group, lowercase variant), a
 Control Panel Failed case (Visual & Functional group), and a Duct Detector
-custom "Bar Coded" entry (confirmed left untouched throughout).
+custom "Bar Coded" entry (confirmed left untouched throughout - since
+2026-09-29 that value is handled by the Untested Devices rule instead).
 
 ## Communicator / Communication Line / Monitoring (`src/cleanup/communications-parser.js`)
 

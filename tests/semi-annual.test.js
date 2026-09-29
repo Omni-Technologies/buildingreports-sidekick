@@ -134,10 +134,20 @@ test('a custom technician note remains untouched under Semi-Annual', () => {
   assert.equal(r.after, null);
 });
 
-test('"Not Tested" remains untouched under Semi-Annual', () => {
-  const r = classifyRecord(makeRecord({ devicetype: 'Battery', service: 'Not Tested' }), semiAnnualProfile);
+test('"Tested By Others" remains untouched under Semi-Annual', () => {
+  const r = classifyRecord(makeRecord({ devicetype: 'Battery', service: 'Tested By Others' }), semiAnnualProfile);
   assert.equal(r.bucket, Bucket.CUSTOM_PRESERVED);
   assert.equal(r.after, null);
+});
+
+test('"Not Tested" gets the untested-device cleanup under Semi-Annual too', () => {
+  const r = classifyRecord(
+    makeRecord({ devicetype: 'Battery', service: 'Not Tested', passed: false, note: 'door locked' }),
+    semiAnnualProfile
+  );
+  assert.equal(r.bucket, Bucket.SAFE_CHANGE);
+  assert.equal(r.after, 'Bar Coded');
+  assert.ok(r.extraFieldChanges.some((c) => c.field === 'passed' && c.after === true));
 });
 
 test('conflicting Passed and Failed remains untouched under Semi-Annual', () => {

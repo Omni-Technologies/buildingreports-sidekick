@@ -51,6 +51,14 @@ changes — it's meant to save a future session from re-deriving all of this.
   Line Service (e.g. `9/11/26 10:03:46`) is read as a daytime time,
   5-11 AM / 12-4 PM (`Yes, 10:03 AM`; `12:27:38` -> `12:27 PM`); and Clean Agent System joins
   the Third-Party Serviced Devices list.
+  **Added 2026-09-29 (Untested Devices, `src/cleanup/untested-device-parser.js`):**
+  a `Not Tested`/`Barcoded` (and variants) Service on any supported,
+  non-third-party device type becomes `Bar Coded`, with Comment
+  `Special Note`, Solution `See Notes/Recommendations`, and a Note picked
+  from context (locate / door locked / room occupied / inside RTU /
+  elevator), and Passed checked (never marked Failed). Undecidable Note → `needsReview`. Unit + fake-report tested
+  only, not yet live-tested. `Not Tested` is no longer a preserve phrase
+  for these device types.
 - **Battery Cleanup** — universal, no Inspection Profile. Preview / Apply /
   Undo — **shares the same three popup buttons as Service Cleanup since
   2026-08-24** (no longer separate buttons; `popup.js` triggers both
@@ -133,12 +141,12 @@ changes — it's meant to save a future session from re-deriving all of this.
 npm test
 ```
 
-**269 tests, 0 failures** across `tests/*.test.js`
+**284 tests, 0 failures** across `tests/*.test.js`
 (`battery-cleanup.test.js`, `battery-engine.test.js`, `classify.test.js`,
 `communications-cleanup.test.js`, `email-summary.test.js`, `engine.test.js`,
 `repair-battery.test.js`, `repair-engine.test.js`, `repair-generic.test.js`,
 `semi-annual.test.js`, `third-party-service-parser.test.js`,
-`write-queue.test.js`). Synthetic
+`untested-device-parser.test.js`, `write-queue.test.js`). Synthetic
 fixtures only (`tests/fixtures.js`), zero mocking, zero DOM dependency. If
 this count drifts from what's actually reported by `npm test`, trust the
 live run, not this file.

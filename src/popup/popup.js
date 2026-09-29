@@ -141,6 +141,7 @@ const SERVICE_EXTRA_FIELD_LABELS = {
   restoreTime: 'Restore Time',
   confirmedTime: 'Confirmed Time',
   restorable: 'Restorable',
+  passed: 'Passed',
   comment: 'Comment',
   solution: 'Solution',
   note: 'Note',

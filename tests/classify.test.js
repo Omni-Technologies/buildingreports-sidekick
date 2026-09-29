@@ -67,7 +67,6 @@ test('blank values remain blank and are not touched', () => {
 
 test('meaningful notes without a result token are preserved, not invented', () => {
   const preserved = [
-    'Not Tested',
     'Unable To Test',
     'Tested By Others',
     'No Access',

@@ -9,6 +9,7 @@ import {
 } from './service-parser.js';
 import { classifyCommsRecord } from './communications-parser.js';
 import { classifyThirdPartyServiceRecord } from './third-party-service-parser.js';
+import { classifyUntestedDeviceRecord } from './untested-device-parser.js';
 
 // Classification buckets. Every record gets exactly one, mirroring the
 // Preview summary categories in the spec.
@@ -79,6 +80,13 @@ export function classifyRecord(record, profile) {
   if (!isSupportedDeviceType(deviceType, profile)) {
     return { bucket: Bucket.UNSUPPORTED_DEVICE_TYPE, before, after: null, reason: `Unsupported device type "${deviceType}"` };
   }
+
+  // "Not Tested"/"Barcoded" (and variants) on any supported device type ->
+  // "Bar Coded" + Comment/Solution/Note, identically under both profiles.
+  // Runs before the preserve-phrase check so "Not Tested" is no longer just
+  // preserved. See untested-device-parser.js and docs/cleanup-rules.md.
+  const untestedResult = classifyUntestedDeviceRecord(record);
+  if (untestedResult) return untestedResult;
 
   if (isBlank(rawService)) {
     return { bucket: Bucket.BLANK, before, after: null, reason: 'Service field is blank' };
