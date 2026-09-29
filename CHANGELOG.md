@@ -20,6 +20,18 @@ When writing an entry, say what changed from the user's point of view:
 ## [Unreleased]
 - (add notes here before running a release)
 
+## [0.1.10] - 2026-09-29
+- **Added**: Service Cleanup now cleans up untested devices on both
+  Annual and Semi-Annual. A Service of "Not Tested" or "Barcoded" (and
+  variants like "Bar Code", "Untested", "Not Tested - door locked")
+  becomes "Bar Coded", with Comment "Special Note", Solution "See
+  Notes/Recommendations", Passed checked, and a Note picked from context:
+  unable to locate, door locked, room occupied, inside RTU, or - for an
+  Elevator or a device whose Direction/Location/Description/Area-Suite
+  mentions an elevator or hoistway - "Unable To Test Without An Elevator
+  Technician Present". If no reason (or more than one) can be found, the
+  device is listed for review and nothing is changed.
+
 ## [0.1.9] - 2026-09-25
 - **Fixed**: Service Cleanup now recognizes the typos "Passd"/"Faild"
   (e.g. "Visual,Passd" -> "Visual, Passed") on both Annual and
