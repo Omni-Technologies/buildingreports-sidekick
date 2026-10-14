@@ -18,6 +18,9 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
+- (add notes here before running a release)
+
+## [0.1.11] - 2026-10-14
 ### Changed
 - Copy Email Lists: devices that would print identical lines now always merge into one counted bullet (case and dash style ignored).
 - Copy Email Lists: Battery bullets drop the stock "Battery Simulated 30 Minute Load Voltage/Discharge Tests" description and end with "Left And Right Batteries" (2 or more) or "Single Battery" (1), with the reason reading "Replace Batteries"/"Replace Battery" to match.
