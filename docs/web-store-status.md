@@ -24,11 +24,17 @@ explicitly says so.
 | Field | Value |
 |---|---|
 | Latest locally generated version | 0.1.11 (`releases/buildingreports-sidekick-v0.1.11.zip`) — generated 2026-10-14 |
-| Latest version submitted for review | **0.1.10** — user confirmed submitted 2026-09-29, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.9 (submitted 2026-09-25, never confirmed approved). |
+| Latest version submitted for review | **0.1.11** — user confirmed submitted 2026-10-14, pending review (not yet approved/rejected) as of this writing. Supersedes 0.1.10 (submitted 2026-09-29, never confirmed approved). |
 | Latest version approved/published | Unknown — not yet confirmed by the user. Do not assume approval. |
 
 ## Since the last submitted release (0.1.6)
 
+- **0.1.11** (generated 2026-10-14, **submitted 2026-10-14**, pending review):
+  Battery Cleanup gives both sides of a Left/Right pair the combined
+  failure; Copy Email Lists groups battery pairs by location, drops the
+  load-test boilerplate, ends bullets with "Left And Right Batteries"/
+  "Single Battery". No permission, host-permission, or privacy changes.
+  Includes everything in 0.1.10.
 - **0.1.10** (generated 2026-09-29, **submitted 2026-09-29**, pending review):
   Service Cleanup cleans up untested devices ("Not Tested"/"Barcoded" and
   variants -> "Bar Coded", Special Note, See Notes/Recommendations, Passed
