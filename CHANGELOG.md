@@ -18,7 +18,11 @@ When writing an entry, say what changed from the user's point of view:
   write-queue pacing changes).
 
 ## [Unreleased]
-- (add notes here before running a release)
+### Changed
+- Copy Email Lists: devices that would print identical lines now always merge into one counted bullet (case and dash style ignored).
+- Copy Email Lists: Battery bullets drop the stock "Battery Simulated 30 Minute Load Voltage/Discharge Tests" description and end with "Left And Right Batteries" (2 or more) or "Single Battery" (1), with the reason reading "Replace Batteries"/"Replace Battery" to match.
+- Copy Email Lists: a Battery pair whose sides carry different causes merges into one bullet with the causes combined (e.g. "Date Expired/Failed Load Test - Replace Batteries").
+- Battery Cleanup: when both sides of a Left/Right pair fail for different reasons, both now get the combined failure (e.g. one Date Expired + the other Failed Load Test -> both "Date Expired/Failed Load Test - Replace Battery"). Previously each side kept its own Note.
 
 ## [0.1.10] - 2026-09-29
 - **Added**: Service Cleanup now cleans up untested devices on both

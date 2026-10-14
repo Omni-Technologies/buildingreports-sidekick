@@ -99,8 +99,48 @@ function buildReasonText(record) {
   return comment || solution;
 }
 
+function isBatteryType(deviceType) {
+  return deviceType.toLowerCase() === 'battery';
+}
+
+// BuildingReports' stock Battery description is test boilerplate, not a
+// location - it's dropped from the email, along with any standalone
+// "Battery"/"Batteries" word left at the end (e.g. the "Left Battery"
+// convention after its marker is stripped), since every Battery bullet
+// gets its own "Left And Right Batteries"/"Single Battery" ending instead.
+const BATTERY_TEST_BOILERPLATE = /\b(?:batter(?:y|ies)\s+)?simulated\s+30\s+minute\s+load\s+voltage\s*\/\s*discharge\s+tests?\b/gi;
+
+function cleanBatteryLocation(locationText) {
+  return normalizeText(locationText.replace(BATTERY_TEST_BOILERPLATE, ' ')).replace(/(?:^|\s+)batter(?:y|ies)$/i, '');
+}
+
+// Battery Cleanup's own reason wording: "<cause>[/<cause>] - Replace
+// Battery". Each side of a pair keeps its own proven failure (e.g. Left
+// only Date Expired, Right Date Expired/Failed Load Test), so Battery
+// bullets group on location alone and their causes are combined here.
+// A reason in any other shape keeps grouping on the full reason text.
+const BATTERY_REASON = /^(.+?)\s*-\s*replace\s+batter(?:y|ies)$/i;
+
+function parseBatteryCauses(reasonText) {
+  const match = reasonText.replace(/[‐-―]/g, '-').match(BATTERY_REASON);
+  return match ? match[1].split('/').map(normalizeText).filter(nonBlank) : null;
+}
+
+function combineBatteryReasons(reasonTexts) {
+  const causes = [];
+  for (const reasonText of reasonTexts) {
+    for (const cause of parseBatteryCauses(reasonText)) {
+      if (!causes.some((c) => c.toLowerCase() === cause.toLowerCase())) causes.push(cause);
+    }
+  }
+  return `${causes.join('/')} - Replace Battery`;
+}
+
+// Grouping compares the text exactly as it will read in the email, ignoring
+// case and dash style, so two bullets that would print identically always
+// merge into one counted bullet.
 function groupKey(deviceType, modelNumber, locationText, reasonText) {
-  return JSON.stringify([deviceType, modelNumber, locationText, reasonText]);
+  return JSON.stringify([deviceType, modelNumber, locationText, reasonText].map((t) => t.toLowerCase().replace(/[‐-―]/g, '-')));
 }
 
 // Groups records sharing the same device type + model number + location
@@ -113,14 +153,22 @@ function groupRecords(records) {
     const modelNumber = normalizeText(record.modelnumber);
     const reasonText = buildReasonText(record);
     const { parts, side } = locationPartsAndSide(record);
-    const locationText = parts.filter(nonBlank).join(' ');
-    const key = groupKey(deviceType, modelNumber, locationText, reasonText);
+    const joinedLocation = parts.filter(nonBlank).join(' ');
+    const locationText = isBatteryType(deviceType) ? cleanBatteryLocation(joinedLocation) : joinedLocation;
+    const batteryCauses = isBatteryType(deviceType) ? parseBatteryCauses(reasonText) : null;
+    const key = groupKey(deviceType, modelNumber, locationText, batteryCauses ? 'battery-causes' : reasonText);
     if (!groups.has(key)) {
-      groups.set(key, { deviceType, modelNumber, locationText, reasonText, scannumbers: [], sides: [] });
+      groups.set(key, { deviceType, modelNumber, locationText, reasonText, reasonTexts: [], scannumbers: [], sides: [] });
     }
     const group = groups.get(key);
+    group.reasonTexts.push(reasonText);
     group.scannumbers.push(record.scannumber);
     group.sides.push(side);
+  }
+  for (const group of groups.values()) {
+    if (isBatteryType(group.deviceType) && group.reasonTexts.every(parseBatteryCauses)) {
+      group.reasonText = combineBatteryReasons(group.reasonTexts);
+    }
   }
   return [...groups.values()];
 }
@@ -131,7 +179,12 @@ function finalizeGroup(group) {
   const hasRight = group.sides.includes('right');
   const deviceType = count > 1 ? pluralize(group.deviceType) : group.deviceType;
   const reasonText = count > 1 ? pluralizeReasonText(group.reasonText, group.deviceType) : group.reasonText;
-  const locationText = hasLeft && hasRight ? `${group.locationText} Left And Right ${pluralize(group.deviceType)}`.trim() : group.locationText;
+  let locationText = group.locationText;
+  if (isBatteryType(group.deviceType)) {
+    locationText = `${locationText} ${count > 1 ? 'Left And Right Batteries' : 'Single Battery'}`.trim();
+  } else if (hasLeft && hasRight) {
+    locationText = `${locationText} Left And Right ${pluralize(group.deviceType)}`.trim();
+  }
   return {
     count,
     deviceType,

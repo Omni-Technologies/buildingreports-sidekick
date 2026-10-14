@@ -233,9 +233,16 @@ location isn't predictable, the rule checks all five identifying columns
 rather than hardcoding any particular one or two.
 
 The paired side uses the source Battery's existing failure outputs (Date
-Expired, Failed Load Test, or both). If both Batteries have their own
-proven failures, each keeps its own outcome. Preview reports how many
-Batteries were failed due to their pair and identifies the source Battery.
+Expired, Failed Load Test, or both). **Changed 2026-10-14:** if both
+Batteries have their own proven failures but for different causes, both
+get the union of the causes - e.g. Left Date Expired + Right Failed Load
+Test (or Date Expired/Failed Load Test) means both become Date
+Expired/Failed Load Test, with the matching Note. Previously each kept its
+own outcome, which left a real pair (confirmed live) with two different
+Notes for one replacement. Comment follows the usual rule (`Date Expired`
+whenever the date failure is present). Preview reports how many Batteries
+had their outcome changed by their pair and identifies the source Battery.
+Logic: `combineFailureOutcomes` in `rules/battery-cleanup.js`.
 
 ### Expiration (date-only, local calendar)
 

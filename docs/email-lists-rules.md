@@ -84,6 +84,31 @@ more than the literal marker word risks removing genuine content in some
 other report's convention). This is a cosmetic loose end the user can
 trivially edit out when pasting; it's not a data-correctness issue.
 
+## Battery bullets (changed 2026-10-14)
+
+Battery groups drop BuildingReports' stock description text `Battery
+Simulated 30 Minute Load Voltage/Discharge Tests` from the location (it's
+test boilerplate, not a location), plus any standalone `Battery`/`Batteries`
+word left at the end of the location. Every Battery bullet then ends with
+`Left And Right Batteries` when its count is 2 or more, or `Single Battery`
+when it's 1 - regardless of whether a Left/Right marker was found, because
+real pairs often carry no marker at all. Reason text pluralizes as before
+(`Replace Battery` -> `Replace Batteries` for count > 1).
+
+When the reason is in Battery Cleanup's `<cause>[/<cause>] - Replace
+Battery` shape, Battery bullets group on location alone and the group's
+causes are combined (e.g. one side `Date Expired`, the other `Date
+Expired/Failed Load Test` -> one `(2)` bullet reading `Date Expired/Failed
+Load Test - Replace Batteries`). Any other reason wording still groups on
+the full reason text. Battery Cleanup itself now gives both sides of a
+pair the combined failure (see `docs/battery-cleanup-rules.md`), so this
+mainly covers reports cleaned before that change or edited by hand.
+
+Grouping keys compare case-insensitively and treat any Unicode dash as
+`-`, so two devices whose bullets would print the same always merge -
+a real report produced two identical-looking `(1) Battery(12V-7Ah)`
+bullets before this.
+
 ## Pluralization
 
 `pluralize()` is a general English rule (consonant+y → ies, s/x/z/ch/sh →

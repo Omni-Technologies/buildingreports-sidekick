@@ -1,6 +1,7 @@
 import {
   classifyBatteryRecord,
   isFailureOutcome,
+  combineFailureOutcomes,
   BatteryBucket,
   BatteryOutcome,
 } from './rules/battery-cleanup.js';
@@ -192,12 +193,16 @@ function applyPairedFailures(records, initialResults, now) {
     const leftOutcome = initialResults[leftIndex].outcome;
     const rightOutcome = initialResults[rightIndex].outcome;
 
-    if (isFailureOutcome(leftOutcome) && !isFailureOutcome(rightOutcome)) {
+    const pairOutcome = combineFailureOutcomes(leftOutcome, rightOutcome);
+    if (!isFailureOutcome(pairOutcome)) continue;
+
+    if (rightOutcome !== pairOutcome) {
       results[rightIndex] = classifyBatteryRecord(records[rightIndex], now, {
         forcedFailureOutcome: leftOutcome,
         pairedWithScannumber: initialResults[leftIndex].scannumber,
       });
-    } else if (isFailureOutcome(rightOutcome) && !isFailureOutcome(leftOutcome)) {
+    }
+    if (leftOutcome !== pairOutcome) {
       results[leftIndex] = classifyBatteryRecord(records[leftIndex], now, {
         forcedFailureOutcome: rightOutcome,
         pairedWithScannumber: initialResults[rightIndex].scannumber,

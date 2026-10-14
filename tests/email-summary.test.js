@@ -151,3 +151,71 @@ test('buildEmailSummary never mutates input records', () => {
   buildEmailSummary(records);
   assert.deepEqual(records, snapshot);
 });
+
+test('an unmarked Battery pair with the stock test description merges, drops the boilerplate, and ends "Left And Right Batteries"', () => {
+  const base = {
+    devicetype: 'Battery',
+    modelnumber: '12V-7Ah',
+    floor: '1st Floor',
+    location: 'Main Entrance FACP',
+    description: 'Battery Simulated 30 Minute Load Voltage/Discharge Tests',
+    passed: false,
+    note: 'Date Expired - Replace Battery',
+  };
+  const summary = buildEmailSummary([
+    makeRecord({ ...base, scannumber: 'p1' }),
+    makeRecord({ ...base, scannumber: 'p2', note: 'date expired – replace battery ' }),
+  ]);
+  assert.equal(summary.failed.length, 1);
+  const group = summary.failed[0];
+  assert.equal(group.count, 2);
+  assert.equal(group.deviceType, 'Batteries');
+  assert.equal(group.locationText, '1st Floor Main Entrance FACP Left And Right Batteries');
+  assert.equal(group.reasonText, 'Date Expired - Replace Batteries');
+});
+
+test('a lone Battery drops the stock test description and ends "Single Battery"', () => {
+  const summary = buildEmailSummary([
+    makeRecord({
+      scannumber: 's1',
+      devicetype: 'Battery',
+      modelnumber: '12V-18Ah',
+      floor: '2nd Floor',
+      location: 'Elevator Room',
+      description: 'Battery Simulated 30 Minute Load Voltage/Discharge Tests',
+      passed: false,
+      note: 'Failed Load Test - Replace Battery',
+    }),
+  ]);
+  const group = summary.failed[0];
+  assert.equal(group.count, 1);
+  assert.equal(group.deviceType, 'Battery');
+  assert.equal(group.locationText, '2nd Floor Elevator Room Single Battery');
+  assert.equal(group.reasonText, 'Failed Load Test - Replace Battery');
+});
+
+test('a live-shaped Battery pair with different causes per side merges and combines the causes', () => {
+  const base = {
+    devicetype: 'Battery',
+    modelnumber: '12V-7Ah',
+    floor: '1st Floor',
+    direction: 'Main Entrance',
+    areasuite: 'Simulated 30 Minute Load Voltage/Discharge Tests',
+    passed: false,
+    comment: 'Date Expired',
+    solution: 'Replace Battery',
+  };
+  const summary = buildEmailSummary([
+    makeRecord({ ...base, scannumber: 'l', location: 'FACP Left Battery', note: 'Date Expired - Replace Battery' }),
+    makeRecord({ ...base, scannumber: 'r', location: 'FACP Right Battery', note: 'Date Expired/Failed Load Test - Replace Battery' }),
+    makeRecord({ ...base, scannumber: 'x', location: 'BPS Panel Left Battery', note: 'Date Expired/Failed Load Test - Replace Battery' }),
+  ]);
+  assert.equal(summary.failed.length, 2);
+  const [facp, bps] = summary.failed;
+  assert.equal(facp.count, 2);
+  assert.equal(facp.locationText, '1st Floor Main Entrance FACP Left And Right Batteries');
+  assert.equal(facp.reasonText, 'Date Expired/Failed Load Test - Replace Batteries');
+  assert.equal(bps.count, 1);
+  assert.equal(bps.locationText, '1st Floor Main Entrance BPS Panel Single Battery');
+  assert.equal(bps.reasonText, 'Date Expired/Failed Load Test - Replace Battery');
+});

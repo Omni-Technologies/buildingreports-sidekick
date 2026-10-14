@@ -456,14 +456,16 @@ export function classifyBatteryRecord(record, now = new Date(), options = {}) {
     intrinsicOutcome = BatteryOutcome.REVIEW;
   }
 
-  // Report-level Battery Cleanup may force the otherwise-passing/review
-  // half of an unambiguous Left/Right pair to share its counterpart's
-  // proven failure. A Battery's own proven failure always remains its
-  // source of truth; pairing never replaces one intrinsic failure with
-  // another Battery's reason.
+  // Report-level Battery Cleanup may force either half of an unambiguous
+  // Left/Right pair to share its counterpart's proven failure. Both sides
+  // end up with the union of the pair's causes (e.g. Date Expired on one
+  // side + Failed Load Test on the other -> both Date Expired/Failed Load
+  // Test), so a pair is always replaced together under one reason.
   const forcedFailureOutcome = options.forcedFailureOutcome;
-  const forcedByPair = !isFailureOutcome(intrinsicOutcome) && isFailureOutcome(forcedFailureOutcome);
-  const outcome = forcedByPair ? forcedFailureOutcome : intrinsicOutcome;
+  const outcome = isFailureOutcome(forcedFailureOutcome)
+    ? combineFailureOutcomes(intrinsicOutcome, forcedFailureOutcome)
+    : intrinsicOutcome;
+  const forcedByPair = outcome !== intrinsicOutcome;
 
   // --- Generate the outcome's Passed/Service/Comment/Solution/Note changes ---
   if (outcome === BatteryOutcome.PASSED) {
@@ -552,6 +554,19 @@ export function isFailureOutcome(outcome) {
   return outcome === BatteryOutcome.DATE_EXPIRED
     || outcome === BatteryOutcome.FAILED_LOAD_TEST
     || outcome === BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST;
+}
+
+// Union of two outcomes' failure causes. A non-failure outcome contributes
+// no cause, so combining it with a failure yields that failure unchanged.
+export function combineFailureOutcomes(a, b) {
+  const hasDateExpired = [a, b].some((o) => o === BatteryOutcome.DATE_EXPIRED
+    || o === BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
+  const hasFailedLoadTest = [a, b].some((o) => o === BatteryOutcome.FAILED_LOAD_TEST
+    || o === BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
+  if (hasDateExpired && hasFailedLoadTest) return BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST;
+  if (hasDateExpired) return BatteryOutcome.DATE_EXPIRED;
+  if (hasFailedLoadTest) return BatteryOutcome.FAILED_LOAD_TEST;
+  return a;
 }
 
 function pickDeviceBucket(fieldChanges, reviewFlags) {

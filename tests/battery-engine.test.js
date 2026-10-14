@@ -207,6 +207,52 @@ test('a failed Right battery also fails its matching Left battery', () => {
   assert.equal(summary.pairedFailureCount, 1);
 });
 
+test('a pair with different failures gets the combined failure on both sides - confirmed live pattern', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-mixed', direction: 'Left', installDate: '2020-01-01' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-mixed', direction: 'Right', installDate: '2020-01-01', testedAh: '1.00' }),
+  ], NOW);
+
+  const left = summary.results.find((r) => r.scannumber === 'left-mixed');
+  const right = summary.results.find((r) => r.scannumber === 'right-mixed');
+  assert.equal(left.intrinsicOutcome, BatteryOutcome.DATE_EXPIRED);
+  assert.equal(left.outcome, BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
+  assert.equal(left.pairedFailure.sourceScannumber, 'right-mixed');
+  assert.equal(right.outcome, BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
+  assert.equal(right.pairedFailure, null);
+  const leftChange = summary.changes.find((c) => c.scannumber === 'left-mixed');
+  assert.equal(leftChange.fields.comment, 'Date Expired');
+  assert.equal(leftChange.fields.note, 'Date Expired/Failed Load Test - Replace Battery');
+  assert.equal(summary.dateExpiredAndFailedLoadTestCount, 2);
+  assert.equal(summary.dateExpiredCount, 0);
+  assert.equal(summary.pairedFailureCount, 1);
+});
+
+test('Date Expired on one side + Failed Load Test on the other combine on both sides', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-de', direction: 'Left', installDate: '2020-01-01' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-flt', direction: 'Right', testedAh: '1.00' }),
+  ], NOW);
+
+  for (const scannumber of ['left-de', 'right-flt']) {
+    const r = summary.results.find((x) => x.scannumber === scannumber);
+    assert.equal(r.outcome, BatteryOutcome.DATE_EXPIRED_AND_FAILED_LOAD_TEST);
+    const change = summary.changes.find((c) => c.scannumber === scannumber);
+    assert.equal(change.fields.note, 'Date Expired/Failed Load Test - Replace Battery');
+    assert.equal(change.fields.comment, 'Date Expired');
+  }
+  assert.equal(summary.pairedFailureCount, 2);
+});
+
+test('a pair already sharing the same failure is left as-is', () => {
+  const summary = runBatteryCleanup([
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'left-same', direction: 'Left', installDate: '2020-01-01' }),
+    makeBatteryRecord({ ...PAIR_CONTEXT, scannumber: 'right-same', direction: 'Right', installDate: '2020-01-01' }),
+  ], NOW);
+  assert.equal(summary.dateExpiredCount, 2);
+  assert.equal(summary.pairedFailureCount, 0);
+});
+
 test('pair matching is case/whitespace tolerant across all five identifying columns', () => {
   const summary = runBatteryCleanup([
     makeBatteryRecord({
